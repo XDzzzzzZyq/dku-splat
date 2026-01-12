@@ -20,7 +20,7 @@ export class GaussianSplat {
     const geometry = new THREE.InstancedBufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(quad, 3))
     geometry.setIndex([0, 1, 2, 2, 3, 0])
-    geometry.instanceCount = 1
+    geometry.instanceCount = 0
 
     // placeholder index attribute for instancing (will be updated with depthIndex)
     const indexArray = new Uint32Array(count)
@@ -81,6 +81,8 @@ export class GaussianSplat {
     geom.setAttribute('index', new THREE.InstancedBufferAttribute(depthIndex, 1, false))
     geom.instanceCount = vertexCount
     this.vertexCount = vertexCount
+
+    console.log(">> Updated geometry with", vertexCount, "instances", depthIndex);
   }
 
   setBuffer(buffer: ArrayBuffer, vertexCount: number) {
@@ -94,5 +96,8 @@ export class GaussianSplat {
     material.uniforms.projection.value.fromArray(projectionMatrix)
     material.uniforms.focal.value.set(fx, fy)
     material.uniforms.viewport.value.set((this.mesh as any).onBeforeRender ? (this.mesh as any).onBeforeRender.width : 1, (this.mesh as any).onBeforeRender ? (this.mesh as any).onBeforeRender.height : 1)
+
+    if (!this.worker) return
+    this.worker.postMessage({ view: viewMatrix })
   }
 }

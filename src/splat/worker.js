@@ -7,6 +7,8 @@ function createWorker(self) {
     var _floatView = new Float32Array(1);
     var _int32View = new Int32Array(_floatView.buffer);
 
+    var _lastView = new Float32Array(16);
+
     function floatToHalf(float) {
         _floatView[0] = float;
         var f = _int32View[0];
@@ -105,7 +107,6 @@ function createWorker(self) {
     }
 
     self.onmessage = (e) => {
-        console.log("Worker received message", e.data);
         if (e.data.buffer) {
             console.log("Worker received buffer");
             buffer = e.data.buffer;
@@ -115,8 +116,14 @@ function createWorker(self) {
 
             generateTexture();
         } else if (e.data.view) {
+            // Update the view, sort and chunk the splats
+            // TODO: better lazy update
+            if (e.data.view.every((v, i) => Math.abs(v - _lastView[i]) < 1e-1)) return;
+
             console.log("Worker received view");
             runSort(e.data.view);
+
+            _lastView = e.data.view;
         }
     };
 }
