@@ -13,7 +13,7 @@ const splat = new GaussianSplat()
 scene.add(splat.mesh)
 
 // Create a small demo buffer (splat-style rows: 32 bytes per vertex)
-const demoVertexCount = 1000
+const demoVertexCount = 1
 {
   const rowBytes = 32
   const buf = new ArrayBuffer(demoVertexCount * rowBytes)
@@ -33,7 +33,7 @@ const demoVertexCount = 1000
     f[8 * i + 7] = 0.0
 
     // colors placed at byte offset 24..27 per-row
-    const base = i * rowBytes + 24
+    const base = i * rowBytes + 28
     u8[base + 0] = Math.floor(200 + Math.random() * 55)
     u8[base + 1] = Math.floor(100 + Math.random() * 155)
     u8[base + 2] = Math.floor(50 + Math.random() * 205)

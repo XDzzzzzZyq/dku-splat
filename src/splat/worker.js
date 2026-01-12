@@ -74,6 +74,7 @@ function createWorker(self) {
             texdata_c[4 * (8 * i + 7) + 3] = u_buffer[32 * i + 24 + 3];
         }
 
+        console.log(">> Worker gen texture:", texwidth, texheight, texdata.byteLength);
         self.postMessage({ texdata, texwidth, texheight }, [texdata.buffer]);
     }
 
@@ -104,11 +105,17 @@ function createWorker(self) {
     }
 
     self.onmessage = (e) => {
+        console.log("Worker received message", e.data);
         if (e.data.buffer) {
+            console.log("Worker received buffer");
             buffer = e.data.buffer;
             vertexCount = e.data.vertexCount;
+
+            console.log(">> buffer size:", buffer.byteLength, "vertexCount:", vertexCount);
+
             generateTexture();
         } else if (e.data.view) {
+            console.log("Worker received view");
             runSort(e.data.view);
         }
     };

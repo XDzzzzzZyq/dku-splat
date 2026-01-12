@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import vert from './shaders/splat.vert?raw'
-import frag from './shaders/splat.frag?raw'
+import vert from './shaders/debug.vert?raw'
+import frag from './shaders/debug.frag?raw'
 
 export class GaussianSplat {
   mesh: THREE.Mesh
@@ -8,19 +8,19 @@ export class GaussianSplat {
   texture: THREE.DataTexture | null = null
   vertexCount = 0
 
-  constructor(count = 2000) {
+  constructor(count = 0) {
     // Quad positions (3 components per vertex; z=0) — three.js expects vec3 for bounding
     const quad = new Float32Array([
-      -2, -2, 0,
-       2, -2, 0,
-       2,  2, 0,
-      -2,  2, 0,
+      -1, -1, 0,
+       1, -1, 0,
+       1,  1, 0,
+      -1,  1, 0,
     ])
 
     const geometry = new THREE.InstancedBufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(quad, 3))
     geometry.setIndex([0, 1, 2, 2, 3, 0])
-    geometry.instanceCount = 0
+    geometry.instanceCount = 1
 
     // placeholder index attribute for instancing (will be updated with depthIndex)
     const indexArray = new Uint32Array(count)
@@ -46,11 +46,15 @@ export class GaussianSplat {
 
     // spawn worker
     try {
+      console.log("creating worker");
       this.worker = new Worker(new URL('./worker.js', import.meta.url))
       this.worker.onmessage = (e) => {
+        console.log("Main thread received message", e.data);
         if (e.data.texdata) {
+          console.log("Main thread received texture data from worker");
           this.handleTexdata(e.data.texdata, e.data.texwidth, e.data.texheight)
         } else if (e.data.depthIndex) {
+          console.log("Main thread received depth index from worker");
           this.handleDepthIndex(e.data.depthIndex, e.data.vertexCount)
         }
       }

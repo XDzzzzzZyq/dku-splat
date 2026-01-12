@@ -6,7 +6,7 @@ uniform mat4 projection, view;
 uniform vec2 focal;
 uniform vec2 viewport;
 
-in vec2 position;
+in vec3 position;
 in int index;
 
 out vec4 vColor;
@@ -45,7 +45,7 @@ void main () {
     vec2 minorAxis = min(sqrt(2.0 * lambda2), 1024.0) * vec2(diagonalVector.y, -diagonalVector.x);
 
     vColor = clamp(pos2d.z/pos2d.w+1.0, 0.0, 1.0) * vec4((cov.w) & 0xffu, (cov.w >> 8) & 0xffu, (cov.w >> 16) & 0xffu, (cov.w >> 24) & 0xffu) / 255.0;
-    vPosition = position;
+    vPosition = vec2(position);
 
     vec2 vCenter = vec2(pos2d) / pos2d.w;
     gl_Position = vec4(vCenter + position.x * majorAxis / viewport + position.y * minorAxis / viewport, 0.0, 1.0);
