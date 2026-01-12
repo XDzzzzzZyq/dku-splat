@@ -5,6 +5,9 @@ import { controls } from './scene/controls'
 import { GaussianSplat } from './splat/GaussianSplat'
 import { Button3D } from './ui3d/Button3D'
 
+console.log("Renderer Capability:", renderer.capabilities.isWebGL2); // true for WebGL2
+console.log("Max Vertex Texture:", renderer.capabilities.maxVertexTextures); // for large instance textures
+
 const scene = new THREE.Scene()
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.6))
@@ -13,7 +16,7 @@ const splat = new GaussianSplat()
 scene.add(splat.mesh)
 
 // Create a small demo buffer (splat-style rows: 32 bytes per vertex)
-const demoVertexCount = 1
+const demoVertexCount = 2
 {
   const rowBytes = 32
   const buf = new ArrayBuffer(demoVertexCount * rowBytes)
@@ -71,6 +74,11 @@ function animate() {
     // ignore if method missing
   }
   renderer.render(scene, camera)
+  const gl = renderer.getContext()
+  const err = gl.getError();
+        if (err !== gl.NO_ERROR) {
+          console.error('WebGL error:', err);
+        }
 }
 
 animate()

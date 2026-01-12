@@ -6,6 +6,7 @@ export class GaussianSplat {
   mesh: THREE.Mesh
   worker: Worker | null = null
   texture: THREE.DataTexture | null = null
+  idx_buffer: THREE.DataTexture | null = null
   vertexCount = 0
 
   constructor(count = 0) {
@@ -22,18 +23,16 @@ export class GaussianSplat {
     geometry.setIndex([0, 1, 2, 2, 3, 0])
     geometry.instanceCount = 0
 
-    // placeholder index attribute for instancing (will be updated with depthIndex)
-    const indexArray = new Uint32Array(count)
-    geometry.setAttribute('index', new THREE.InstancedBufferAttribute(indexArray, 1, false))
-
     const material = new THREE.RawShaderMaterial({
       glslVersion: THREE.GLSL3,
       transparent: true,
       depthWrite: false,
       blending: THREE.NormalBlending,
+      side: THREE.DoubleSide,
       vertexShader: vert,
       fragmentShader: frag,
       uniforms: {
+        idx_buffer: { value:null} ,
         u_texture: { value: null },
         projection: { value: new THREE.Matrix4() },
         view: { value: new THREE.Matrix4() },
@@ -43,6 +42,28 @@ export class GaussianSplat {
     })
 
     this.mesh = new THREE.Mesh(geometry, material)
+
+    // one-time shader compile/info log check (helps surface compile/link errors)
+    ;(this.mesh as any).onBeforeRender = (renderer: any) => {
+      const mat = this.mesh.material as any
+      if ((this as any)._shaderChecked) return
+      (this as any)._shaderChecked = true
+      try {
+        const gl = renderer.getContext()
+
+        console.log(gl.getParameter(gl.VERSION))
+        console.log(gl.getParameter(gl.SHADING_LANGUAGE_VERSION))
+
+        const err = gl.getError();
+        if (err !== gl.NO_ERROR) {
+          console.error('WebGL error:', err);
+        } else{
+          console.log("GL no error")
+        }
+      } catch (err) {
+        console.warn('Shader compile check failed', err)
+      }
+    }
 
     // spawn worker
     try {
@@ -77,12 +98,29 @@ export class GaussianSplat {
   }
 
   handleDepthIndex(depthIndex: Uint32Array, vertexCount: number) {
-    const geom = this.mesh.geometry as THREE.InstancedBufferGeometry
-    geom.setAttribute('index', new THREE.InstancedBufferAttribute(depthIndex, 1, false))
-    geom.instanceCount = vertexCount
-    this.vertexCount = vertexCount
+
+    const texture = new THREE.DataTexture(
+      depthIndex,
+      vertexCount,
+      1,
+      THREE.RedIntegerFormat,
+      THREE.UnsignedIntType
+    );
+    texture.needsUpdate = true;
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.generateMipmaps = false;
+    (this.mesh.material as THREE.RawShaderMaterial).uniforms.idx_buffer.value = texture;
+
+    const geom = this.mesh.geometry as THREE.InstancedBufferGeometry;
+    geom.instanceCount = vertexCount;
+    this.vertexCount = vertexCount;
+    this.idx_buffer = texture;
 
     console.log(">> Updated geometry with", vertexCount, "instances", depthIndex);
+    console.log(">> Geometry:", geom.instanceCount);
   }
 
   setBuffer(buffer: ArrayBuffer, vertexCount: number) {
