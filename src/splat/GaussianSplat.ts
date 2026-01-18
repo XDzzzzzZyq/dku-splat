@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import vert from './shaders/debug.vert?raw'
+import vert from './shaders/debug2.vert?raw'
 import frag from './shaders/debug.frag?raw'
 
 export class GaussianSplat {
@@ -89,10 +89,20 @@ export class GaussianSplat {
     // create a three.js DataTexture using float format. The worker packed some values as uints
     // into the same buffer; those bit patterns are preserved when viewed as Float32Array.
     const floatArray = texdata instanceof ArrayBuffer ? new Float32Array(texdata) : new Float32Array((texdata as any).buffer || texdata)
-    const tex = new THREE.DataTexture(floatArray, texwidth, texheight, THREE.RGBAFormat, THREE.FloatType)
+    const tex = new THREE.DataTexture(
+      floatArray,
+      texwidth, 
+      texheight, 
+      THREE.RGBAFormat, 
+      THREE.FloatType
+    )
+
+    tex.needsUpdate = true;
     tex.magFilter = THREE.NearestFilter
     tex.minFilter = THREE.NearestFilter
-    tex.needsUpdate = true
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.generateMipmaps = false;
     this.texture = tex
     ;(this.mesh.material as THREE.RawShaderMaterial).uniforms.u_texture.value = tex
   }

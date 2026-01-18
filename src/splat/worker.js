@@ -42,38 +42,51 @@ function createWorker(self) {
         return (floatToHalf(x) | (floatToHalf(y) << 16)) >>> 0;
     }
 
+    /*
+    Buffer Layout:
+    | pos : vec3(3 * 4) | opacity : float(4) | scl : vec3(3 * 4) | rot : vec3(3 * 4) | color : rgba(4) |
+
+    Data Texture Layout:
+    | pos : vec3(3 * 4) | opacity : float(4) | cov : hvec3(3 * 4) | color : rgba(4) |
+    */
     function generateTexture() {
         if (!buffer) return;
         const f_buffer = new Float32Array(buffer);
         const u_buffer = new Uint8Array(buffer);
 
-        var texwidth = 1024 * 2;
-        var texheight = Math.ceil((2 * vertexCount) / texwidth);
+        // 1024 splats per row
+        const pix_per_splat = 2;
+        const rowFloats = pix_per_splat * 4;
+
+        const rowFloats_buffer = 11;
+
+        const rowSplats = 1024;
+        const texwidth = rowSplats * pix_per_splat;
+        const texheight = Math.ceil(vertexCount / rowSplats);
+
+        // RGBA_F32 -> 2 pixels per splat
         var texdata = new Uint32Array(texwidth * texheight * 4);
         var texdata_c = new Uint8Array(texdata.buffer);
         var texdata_f = new Float32Array(texdata.buffer);
 
         for (let i = 0; i < vertexCount; i++) {
             // positions
-            texdata_f[8 * i + 0] = f_buffer[8 * i + 0];
-            texdata_f[8 * i + 1] = f_buffer[8 * i + 1];
-            texdata_f[8 * i + 2] = f_buffer[8 * i + 2];
-
-            // scales
-            texdata_f[8 * i + 3] = f_buffer[8 * i + 3];
-            texdata_f[8 * i + 4] = f_buffer[8 * i + 4];
-            texdata_f[8 * i + 5] = f_buffer[8 * i + 5];
+            texdata_f[rowFloats * i + 0] = f_buffer[rowFloats_buffer * i + 0];
+            texdata_f[rowFloats * i + 1] = f_buffer[rowFloats_buffer * i + 1];
+            texdata_f[rowFloats * i + 2] = f_buffer[rowFloats_buffer * i + 2];
+            // opcacity
+            texdata_f[rowFloats * i + 3] = f_buffer[rowFloats_buffer * i + 3];
 
             // pack covariance halves (best-effort mapping)
-            texdata[8 * i + 4] = packHalf2x16(f_buffer[8 * i + 6] || 0, f_buffer[8 * i + 7] || 0);
-            texdata[8 * i + 5] = packHalf2x16(f_buffer[8 * i + 8] || 0, f_buffer[8 * i + 9] || 0);
-            texdata[8 * i + 6] = packHalf2x16(f_buffer[8 * i + 10] || 0, f_buffer[8 * i + 11] || 0);
-
+            texdata[rowFloats * i + 4] = packHalf2x16(f_buffer[rowFloats_buffer * i + 6 ] || 0, f_buffer[rowFloats_buffer * i + 7 ] || 0);
+            texdata[rowFloats * i + 5] = packHalf2x16(f_buffer[rowFloats_buffer * i + 8 ] || 0, f_buffer[rowFloats_buffer * i + 9 ] || 0);
+            texdata[rowFloats * i + 6] = packHalf2x16(f_buffer[rowFloats_buffer * i + 10] || 0, f_buffer[rowFloats_buffer * i + 11] || 0);
             // colors (assume u8 at buffer offset)
-            texdata_c[4 * (8 * i + 7) + 0] = u_buffer[32 * i + 24 + 0];
-            texdata_c[4 * (8 * i + 7) + 1] = u_buffer[32 * i + 24 + 1];
-            texdata_c[4 * (8 * i + 7) + 2] = u_buffer[32 * i + 24 + 2];
-            texdata_c[4 * (8 * i + 7) + 3] = u_buffer[32 * i + 24 + 3];
+            const base = i * 4 * rowFloats_buffer + 10 * 4
+            texdata_c[4 * (rowFloats * i + 7) + 0] = u_buffer[base + 0];
+            texdata_c[4 * (rowFloats * i + 7) + 1] = u_buffer[base + 1];
+            texdata_c[4 * (rowFloats * i + 7) + 2] = u_buffer[base + 2];
+            texdata_c[4 * (rowFloats * i + 7) + 3] = u_buffer[base + 3];
         }
 
         console.log(">> Worker gen texture:", texwidth, texheight, texdata.byteLength);
@@ -82,11 +95,13 @@ function createWorker(self) {
 
     function runSort(viewProj) {
         if (!buffer) return;
+        const rowFloats_buffer = 11;
+
         const f_buffer = new Float32Array(buffer);
         let maxDepth = -Infinity, minDepth = Infinity;
         let sizeList = new Int32Array(vertexCount);
         for (let i = 0; i < vertexCount; i++) {
-            const depth = ((viewProj[2] * f_buffer[8 * i + 0] + viewProj[6] * f_buffer[8 * i + 1] + viewProj[10] * f_buffer[8 * i + 2]) * 4096) | 0;
+            const depth = ((viewProj[2] * f_buffer[rowFloats_buffer * i + 0] + viewProj[6] * f_buffer[rowFloats_buffer * i + 1] + viewProj[10] * f_buffer[rowFloats_buffer * i + 2]) * 4096) | 0;
             sizeList[i] = depth;
             if (depth > maxDepth) maxDepth = depth;
             if (depth < minDepth) minDepth = depth;
