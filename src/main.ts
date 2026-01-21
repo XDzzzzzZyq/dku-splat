@@ -20,7 +20,7 @@ scene.add(splat.mesh)
 | pos : vec3(3 * 4) | opacity : float(4) | scl : vec3(3 * 4) | rot : vec3(3 * 4) | color : rgba(4) |
 */
 // TODO: Float Buffer <-> Texture Buffer abstraction
-const demoVertexCount = 10
+const demoVertexCount = 20
 {
   const rowFloats = 11; // float bytes = 32 / 4
   const rowBytes = rowFloats * 4;
@@ -36,13 +36,13 @@ const demoVertexCount = 10
     f[rowFloats * i + 3] = 1.0
 
     // scale
-    f[rowFloats * i + 4] = 1
-    f[rowFloats * i + 5] = 1
-    f[rowFloats * i + 6] = 1
+    f[rowFloats * i + 4] = 0.5 + Math.random() * 0.5
+    f[rowFloats * i + 5] = 0.5 + Math.random() * 0.5
+    f[rowFloats * i + 6] = 0.5 + Math.random() * 0.5
     // rot
-    f[rowFloats * i + 7] = Math.random() * 360
-    f[rowFloats * i + 8] = Math.random() * 360
-    f[rowFloats * i + 9] = Math.random() * 360
+    f[rowFloats * i + 7] = Math.random() * Math.PI * 2
+    f[rowFloats * i + 8] = Math.random() * Math.PI * 2
+    f[rowFloats * i + 9] = Math.random() * Math.PI * 2
 
     // colors placed at byte offset 48..51 per-row
     const base = i * rowBytes + 10 * 4

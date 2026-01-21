@@ -48,6 +48,7 @@ function createWorker(self) {
         const cos_x = Math.cos(r_x), sin_x = Math.sin(r_x);
         const cos_y = Math.cos(r_y), sin_y = Math.sin(r_y);
         const cos_z = Math.cos(r_z), sin_z = Math.sin(r_z);
+        console.log(cos_x, cos_y, cos_z)
 
         // Rotation matrices
         const Rx = [1,     0,      0, 
@@ -66,18 +67,12 @@ function createWorker(self) {
         const R = multiply3x3(Rz, multiply3x3(Ry, Rx));
 
         // Scale squared
-        const scale_sq = [s_x * s_x, s_y * s_y, s_z * s_z];
-
-        // Temp = R * diag(scale_sq)
-        const temp = [
-            R[0] * scale_sq[0], R[1] * scale_sq[0], R[2] * scale_sq[0],
-            R[3] * scale_sq[1], R[4] * scale_sq[1], R[5] * scale_sq[1],
-            R[6] * scale_sq[2], R[7] * scale_sq[2], R[8] * scale_sq[2]
-        ];
+        const S2 = [s_x * s_x, 0, 0, 
+                          0, s_y * s_y, 0, 
+                          0, 0, s_z * s_z];
 
         // Covariance = temp * R^T
-        const RT = transpose3x3(R);
-        const cov = multiply3x3(temp, RT);
+        const cov = multiply3x3(R, multiply3x3(S2, transpose3x3(R)));
 
         // Return upper triangle: xx, xy, xz, yy, yz, zz
         return [cov[0], cov[1], cov[2], cov[4], cov[5], cov[8]];
@@ -131,7 +126,14 @@ function createWorker(self) {
             texdata_f[rowFloats * i + 3] = f_buffer[rowFloats_buffer * i + 3];
 
             // pack covariance halves
-            const cov = to_covariance(f_buffer[rowFloats_buffer * i + 4], f_buffer[rowFloats_buffer * i + 5], f_buffer[rowFloats_buffer * i + 6], f_buffer[rowFloats_buffer * i + 7], f_buffer[rowFloats_buffer * i + 8], f_buffer[rowFloats_buffer * i + 9]);
+            const cov = to_covariance(
+                f_buffer[rowFloats_buffer * i + 4], 
+                f_buffer[rowFloats_buffer * i + 5], 
+                f_buffer[rowFloats_buffer * i + 6], 
+                f_buffer[rowFloats_buffer * i + 7], 
+                f_buffer[rowFloats_buffer * i + 8], 
+                f_buffer[rowFloats_buffer * i + 9]
+            );
             texdata[rowFloats * i + 4] = packHalf2x16(cov[0], cov[1]);
             texdata[rowFloats * i + 5] = packHalf2x16(cov[2], cov[3]);
             texdata[rowFloats * i + 6] = packHalf2x16(cov[4], cov[5]);

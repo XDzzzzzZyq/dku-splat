@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import vert from './shaders/debug3.vert?raw'
-import frag from './shaders/debug.frag?raw'
+import frag from './shaders/debug3.frag?raw'
 
 export class GaussianSplat {
   mesh: THREE.Mesh
@@ -142,7 +142,6 @@ export class GaussianSplat {
     material.uniforms.view.value.fromArray(viewMatrix)
     material.uniforms.projection.value.fromArray(projectionMatrix)
     material.uniforms.focal.value.set(fx, fy, fz)
-    console.log(fx, fy, fz)
 
     if (!this.worker) return
     this.worker.postMessage({ view: viewMatrix })

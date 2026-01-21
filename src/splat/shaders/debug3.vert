@@ -51,13 +51,14 @@ void main()
     float r = focal.x / focal.y;
 
     mat3 cov = unpackCovariance(pix2.xyz);
+    // GLSL fills column-major
     mat3 J = mat3(
         1. / (r * tan_a * pos_view.z), 0., -(pos_view.x) / (pos_view.z * pos_view.z) / (r * tan_a),
         0.,     1. / (tan_a * pos_view.z), -(pos_view.y) / (pos_view.z * pos_view.z) / (tan_a),
         0., 0., 0.
     );
 
-    mat3 T = J * mat3(view);
+    mat3 T = transpose(J) * mat3(view);
     mat2 cov_scr = mat2(T * cov * transpose(T));
 
     // Eigen decomposition
@@ -68,9 +69,9 @@ void main()
     vec2 ax_diag = normalize(vec2(cov_scr[0][1], lambda1 - cov_scr[0][0]));
     
     vec2 center = vec2(pos_proj) / pos_proj.w;
-    vec2 ax_1 = min(sqrt(2.0 * lambda1), 1024.0) * ax_diag;
-    vec2 ax_2 = min(sqrt(2.0 * lambda1), 1024.0) * vec2(ax_diag.y, -ax_diag.x);
-    gl_Position = vec4(center + position.x * ax_1 * focal.x + position.y * ax_2 * focal.y, 0.0, 1.0);
+    vec2 ax_1 = min(sqrt(lambda1), 1024.0) * ax_diag;
+    vec2 ax_2 = min(sqrt(lambda2), 1024.0) * vec2(ax_diag.y, -ax_diag.x);
+    gl_Position = vec4(center + position.x * ax_1 + position.y * ax_2, 0.0, 1.0);
 
 
     vPosition = vec2(position);
