@@ -30,8 +30,8 @@ RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkg
     conda clean -afy
 
 # Make conda env default
-ENV CONDA_DEFAULT_ENV=appenv
-ENV PATH=$CONDA_DIR/envs/appenv/bin:$PATH
+ENV CONDA_DEFAULT_ENV=dku-splat
+ENV PATH=$CONDA_DIR/envs/dku-splat/bin:$PATH
 
 # ---------- App setup ----------
 WORKDIR /app

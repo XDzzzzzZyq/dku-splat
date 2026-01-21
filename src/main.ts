@@ -5,7 +5,7 @@ import { controls } from './scene/controls'
 import { GaussianSplat } from './splat/GaussianSplat'
 import { Button3D } from './ui3d/Button3D'
 
-import {demoVertexCount, buf} from './scene/test/test_scene'
+import {demoVertexCount, buf} from './scene/test/test_scene_cup'
 
 console.log("Renderer Capability:", renderer.capabilities.isWebGL2); // true for WebGL2
 console.log("Max Vertex Texture:", renderer.capabilities.maxVertexTextures); // for large instance textures

@@ -14,7 +14,7 @@ services:
 
   backend:
     build: .
-    command: bash -lc "uvicorn src.scripts.load_ply:app --host 0.0.0.0 --port 8000 --reload"
+    command: bash -lc "source /opt/conda/etc/profile.d/conda.sh && conda activate dku-splat && uvicorn src.scripts.load_ply:app --host 0.0.0.0 --port 8000 --reload"
     volumes:
       - ./:/app
     ports:
