@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,6 +16,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["GET"],
     allow_headers=["*"],
+    expose_headers=["n-vertex", "n-channels", "dtype"],
 )
 
 def quaternion_to_eular(qw, qx, qy, qz):
@@ -55,8 +56,8 @@ def quaternion_to_eular(qw, qx, qy, qz):
     # Euler angles: shape (N, 3)
     return np.stack([roll, pitch, yaw], axis=1)
 
-def _load_ply():
-    path = os.path.abspath("res/coffee/point_cloud.ply")
+def _load_ply(filename):
+    path = os.path.abspath(f"res/{filename}/point_cloud.ply")
 
     ply = PlyData.read(path)
     v = ply["vertex"].data
@@ -76,9 +77,16 @@ def _load_ply():
     return X.astype(np.float32)
 
 @app.get("/ply")
-def load_ply():
-    X = _load_ply()
-    return Response(X.tobytes(), media_type="application/octet-stream")
+def load_ply(filename: str = Query(...)):
+    X = _load_ply(filename)
+    return Response(
+        X.tobytes(), 
+        media_type="application/octet-stream",
+        headers={
+            "n-vertex": str(X.shape[0]),
+            "n-channels": str(X.shape[1]),
+            "dtype": "float32"
+        })
 
 if __name__ == '__main__':
     X = _load_ply()
