@@ -39,11 +39,11 @@ mat3 unpackCovariance(vec3 v)
 void main()
 {
     // load transform
-    int id = int(texelFetch(idx_buffer, ivec2(gl_InstanceID, 0), 0).r);
-    int row = id / 1024;
-    int col = (id % 1024) * 2;
-    vec4 pix1 = texelFetch(u_texture, ivec2(col  , row), 0);
-    vec4 pix2 = texelFetch(u_texture, ivec2(col+1, row), 0);
+    int id = int(texelFetch(idx_buffer, ivec2(gl_InstanceID % 1024, gl_InstanceID / 1024), 0).r);
+    int row = (id % 1024) * 2;
+    int col = id / 1024;
+    vec4 pix1 = texelFetch(u_texture, ivec2(row  , col), 0);
+    vec4 pix2 = texelFetch(u_texture, ivec2(row+1, col), 0);
 
     vec4 pos_view = view * vec4(pix1.xyz, 1.0); // relative position to camera
     vec4 pos_proj = projection * pos_view;

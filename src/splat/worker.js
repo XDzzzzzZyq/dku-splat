@@ -1,3 +1,5 @@
+import { CONFIG } from "../config.js";
+
 function createWorker(self) {
     // Adapted processing worker: packs splat buffer into a texture-friendly format,
     // performs a simple depth sort, and posts texdata and depthIndex back to main thread.
@@ -89,9 +91,13 @@ function createWorker(self) {
         return [M[0], M[3], M[6], M[1], M[4], M[7], M[2], M[5], M[8]];
     }
 
+    function float_to_byte(v){
+        return Math.min(Math.max(Math.round(v * 255), 0), 255)
+    }
+
     /*
     Buffer Layout:
-    | pos : vec3(3 * 4) | opacity : float(4) | scl : vec3(3 * 4) | rot : vec3(3 * 4) | color : rgba(4) |
+    | pos : vec3(3 * 4) | opacity : float(4) | scl : vec3(3 * 4) | rot : vec3(3 * 4) | color : vec4(4 * 4) |
 
     Data Texture Layout:
     | pos : vec3(3 * 4) | opacity : float(4) | cov : hvec3(3 * 4) | color : rgba(4) |
@@ -99,13 +105,12 @@ function createWorker(self) {
     function generateTexture() {
         if (!buffer) return;
         const f_buffer = new Float32Array(buffer);
-        const u_buffer = new Uint8Array(buffer);
 
         // 1024 splats per row
         const pix_per_splat = 2;
         const rowFloats = pix_per_splat * 4;
 
-        const rowFloats_buffer = 11;
+        const rowFloats_buffer = CONFIG.RAW_FLOAT_PER_SPLAT;
 
         const rowSplats = 1024;
         const texwidth = rowSplats * pix_per_splat;
@@ -137,11 +142,10 @@ function createWorker(self) {
             texdata[rowFloats * i + 5] = packHalf2x16(cov[2], cov[3]);
             texdata[rowFloats * i + 6] = packHalf2x16(cov[4], cov[5]);
             // colors (assume u8 at buffer offset)
-            const base = i * 4 * rowFloats_buffer + 10 * 4
-            texdata_c[4 * (rowFloats * i + 7) + 0] = u_buffer[base + 0];
-            texdata_c[4 * (rowFloats * i + 7) + 1] = u_buffer[base + 1];
-            texdata_c[4 * (rowFloats * i + 7) + 2] = u_buffer[base + 2];
-            texdata_c[4 * (rowFloats * i + 7) + 3] = u_buffer[base + 3];
+            texdata_c[4 * (rowFloats * i + 7) + 0] = float_to_byte(f_buffer[rowFloats_buffer * i + 10]);
+            texdata_c[4 * (rowFloats * i + 7) + 1] = float_to_byte(f_buffer[rowFloats_buffer * i + 11]);
+            texdata_c[4 * (rowFloats * i + 7) + 2] = float_to_byte(f_buffer[rowFloats_buffer * i + 12]);
+            texdata_c[4 * (rowFloats * i + 7) + 3] = float_to_byte(f_buffer[rowFloats_buffer * i + 13]);
         }
 
         console.log(">> Worker gen texture:", texwidth, texheight, texdata.byteLength);
@@ -150,7 +154,7 @@ function createWorker(self) {
 
     function runSort(viewProj) {
         if (!buffer) return;
-        const rowFloats_buffer = 11;
+        const rowFloats_buffer = CONFIG.RAW_FLOAT_PER_SPLAT;
 
         const f_buffer = new Float32Array(buffer);
         let maxDepth = -Infinity, minDepth = Infinity;
@@ -170,7 +174,9 @@ function createWorker(self) {
         }
         let starts0 = new Uint32Array(256 * 256);
         for (let i = 1; i < 256 * 256; i++) starts0[i] = starts0[i - 1] + counts0[i - 1];
-        let depthIndex = new Uint32Array(vertexCount);
+        const w = 1024;
+        const h = Math.ceil(vertexCount / w);
+        let depthIndex = new Uint32Array(w * h);
         for (let i = 0; i < vertexCount; i++) depthIndex[starts0[sizeList[i]]++] = i;
 
         self.postMessage({ depthIndex, viewProj, vertexCount }, [depthIndex.buffer]);

@@ -67,7 +67,7 @@ export class GaussianSplat {
     // spawn worker
     try {
       console.log("creating worker");
-      this.worker = new Worker(new URL('./worker.js', import.meta.url))
+      this.worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
       this.worker.onmessage = (e) => {
         console.log("Main thread received message", e.data);
         if (e.data.texdata) {
@@ -110,8 +110,8 @@ export class GaussianSplat {
 
     const texture = new THREE.DataTexture(
       depthIndex,
-      vertexCount,
-      1,
+      1024,
+      Math.ceil(vertexCount / 1024),
       THREE.RedIntegerFormat,
       THREE.UnsignedIntType
     );
