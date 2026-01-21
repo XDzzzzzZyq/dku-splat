@@ -42,6 +42,59 @@ function createWorker(self) {
         return (floatToHalf(x) | (floatToHalf(y) << 16)) >>> 0;
     }
 
+    // \Sigma = RSS^TR^T 
+    function to_covariance(s_x, s_y, s_z, r_x, r_y, r_z){
+        // Compute rotation matrix from Euler angles (XYZ order)
+        const cos_x = Math.cos(r_x), sin_x = Math.sin(r_x);
+        const cos_y = Math.cos(r_y), sin_y = Math.sin(r_y);
+        const cos_z = Math.cos(r_z), sin_z = Math.sin(r_z);
+
+        // Rotation matrices
+        const Rx = [1,     0,      0, 
+                    0, cos_x, -sin_x, 
+                    0, sin_x, cos_x];
+
+        const Ry = [ cos_y, 0, sin_y, 
+                    0,      1,     0, 
+                    -sin_y, 0, cos_y];
+
+        const Rz = [cos_z, -sin_z, 0, 
+                    sin_z,  cos_z, 0, 
+                    0,          0, 1];
+
+        // R = Rz * Ry * Rx
+        const R = multiply3x3(Rz, multiply3x3(Ry, Rx));
+
+        // Scale squared
+        const scale_sq = [s_x * s_x, s_y * s_y, s_z * s_z];
+
+        // Temp = R * diag(scale_sq)
+        const temp = [
+            R[0] * scale_sq[0], R[1] * scale_sq[0], R[2] * scale_sq[0],
+            R[3] * scale_sq[1], R[4] * scale_sq[1], R[5] * scale_sq[1],
+            R[6] * scale_sq[2], R[7] * scale_sq[2], R[8] * scale_sq[2]
+        ];
+
+        // Covariance = temp * R^T
+        const RT = transpose3x3(R);
+        const cov = multiply3x3(temp, RT);
+
+        // Return upper triangle: xx, xy, xz, yy, yz, zz
+        return [cov[0], cov[1], cov[2], cov[4], cov[5], cov[8]];
+    }
+
+    function multiply3x3(A, B) {
+        return [
+            A[0]*B[0] + A[1]*B[3] + A[2]*B[6], A[0]*B[1] + A[1]*B[4] + A[2]*B[7], A[0]*B[2] + A[1]*B[5] + A[2]*B[8],
+            A[3]*B[0] + A[4]*B[3] + A[5]*B[6], A[3]*B[1] + A[4]*B[4] + A[5]*B[7], A[3]*B[2] + A[4]*B[5] + A[5]*B[8],
+            A[6]*B[0] + A[7]*B[3] + A[8]*B[6], A[6]*B[1] + A[7]*B[4] + A[8]*B[7], A[6]*B[2] + A[7]*B[5] + A[8]*B[8]
+        ];
+    }
+
+    function transpose3x3(M) {
+        return [M[0], M[3], M[6], M[1], M[4], M[7], M[2], M[5], M[8]];
+    }
+
     /*
     Buffer Layout:
     | pos : vec3(3 * 4) | opacity : float(4) | scl : vec3(3 * 4) | rot : vec3(3 * 4) | color : rgba(4) |
@@ -77,10 +130,11 @@ function createWorker(self) {
             // opcacity
             texdata_f[rowFloats * i + 3] = f_buffer[rowFloats_buffer * i + 3];
 
-            // pack covariance halves (best-effort mapping)
-            texdata[rowFloats * i + 4] = packHalf2x16(f_buffer[rowFloats_buffer * i + 6 ] || 0, f_buffer[rowFloats_buffer * i + 7 ] || 0);
-            texdata[rowFloats * i + 5] = packHalf2x16(f_buffer[rowFloats_buffer * i + 8 ] || 0, f_buffer[rowFloats_buffer * i + 9 ] || 0);
-            texdata[rowFloats * i + 6] = packHalf2x16(f_buffer[rowFloats_buffer * i + 10] || 0, f_buffer[rowFloats_buffer * i + 11] || 0);
+            // pack covariance halves
+            const cov = to_covariance(f_buffer[rowFloats_buffer * i + 4], f_buffer[rowFloats_buffer * i + 5], f_buffer[rowFloats_buffer * i + 6], f_buffer[rowFloats_buffer * i + 7], f_buffer[rowFloats_buffer * i + 8], f_buffer[rowFloats_buffer * i + 9]);
+            texdata[rowFloats * i + 4] = packHalf2x16(cov[0], cov[1]);
+            texdata[rowFloats * i + 5] = packHalf2x16(cov[2], cov[3]);
+            texdata[rowFloats * i + 6] = packHalf2x16(cov[4], cov[5]);
             // colors (assume u8 at buffer offset)
             const base = i * 4 * rowFloats_buffer + 10 * 4
             texdata_c[4 * (rowFloats * i + 7) + 0] = u_buffer[base + 0];

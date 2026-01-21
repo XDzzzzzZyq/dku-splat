@@ -20,7 +20,7 @@ scene.add(splat.mesh)
 | pos : vec3(3 * 4) | opacity : float(4) | scl : vec3(3 * 4) | rot : vec3(3 * 4) | color : rgba(4) |
 */
 // TODO: Float Buffer <-> Texture Buffer abstraction
-const demoVertexCount = 3
+const demoVertexCount = 10
 {
   const rowFloats = 11; // float bytes = 32 / 4
   const rowBytes = rowFloats * 4;
@@ -36,13 +36,13 @@ const demoVertexCount = 3
     f[rowFloats * i + 3] = 1.0
 
     // scale
-    f[rowFloats * i + 4] = 0.2 + Math.random() * 0.5
-    f[rowFloats * i + 5] = 0.2 + Math.random() * 0.5
-    f[rowFloats * i + 6] = 0.2 + Math.random() * 0.5
+    f[rowFloats * i + 4] = 1
+    f[rowFloats * i + 5] = 1
+    f[rowFloats * i + 6] = 1
     // rot
-    f[rowFloats * i + 7] = 0.0
-    f[rowFloats * i + 8] = 0.0
-    f[rowFloats * i + 9] = 0.0
+    f[rowFloats * i + 7] = Math.random() * 360
+    f[rowFloats * i + 8] = Math.random() * 360
+    f[rowFloats * i + 9] = Math.random() * 360
 
     // colors placed at byte offset 48..51 per-row
     const base = i * rowBytes + 10 * 4
@@ -78,7 +78,10 @@ function animate() {
   // update splat shader uniforms with current camera
   // three.js camera matrices
   try {
-    splat.updateUniforms(camera.matrixWorldInverse.elements as unknown as Float32Array, camera.projectionMatrix.elements as unknown as Float32Array, 1.0, 1.0)
+    splat.updateUniforms(
+      camera.matrixWorldInverse.elements as unknown as Float32Array, 
+      camera.projectionMatrix.elements as unknown as Float32Array, 
+      camera.aspect, 1.0, 1.0) // TODO: adjustbale focal length
   } catch (err) {
     // ignore if method missing
   }

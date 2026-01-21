@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import vert from './shaders/debug2.vert?raw'
+import vert from './shaders/debug3.vert?raw'
 import frag from './shaders/debug.frag?raw'
 
 export class GaussianSplat {
@@ -36,8 +36,7 @@ export class GaussianSplat {
         u_texture: { value: null },
         projection: { value: new THREE.Matrix4() },
         view: { value: new THREE.Matrix4() },
-        focal: { value: new THREE.Vector2(1, 1) },
-        viewport: { value: new THREE.Vector2(1, 1) }
+        focal: { value: new THREE.Vector3(1, 1, 1) },
       }
     })
 
@@ -138,12 +137,12 @@ export class GaussianSplat {
     this.worker.postMessage({ buffer, vertexCount }, [buffer])
   }
 
-  updateUniforms(viewMatrix: Float32Array, projectionMatrix: Float32Array, fx: number, fy: number) {
+  updateUniforms(viewMatrix: Float32Array, projectionMatrix: Float32Array, fx: number, fy: number, fz: number) {
     const material = this.mesh.material as THREE.RawShaderMaterial
     material.uniforms.view.value.fromArray(viewMatrix)
     material.uniforms.projection.value.fromArray(projectionMatrix)
-    material.uniforms.focal.value.set(fx, fy)
-    material.uniforms.viewport.value.set((this.mesh as any).onBeforeRender ? (this.mesh as any).onBeforeRender.width : 1, (this.mesh as any).onBeforeRender ? (this.mesh as any).onBeforeRender.height : 1)
+    material.uniforms.focal.value.set(fx, fy, fz)
+    console.log(fx, fy, fz)
 
     if (!this.worker) return
     this.worker.postMessage({ view: viewMatrix })

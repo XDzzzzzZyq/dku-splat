@@ -12,6 +12,7 @@ out vec2 vPosition;
 
 void main()
 {
+    // indexing test
     int id = int(texelFetch(idx_buffer, ivec2(gl_InstanceID, 0), 0).r);
     gl_Position = projection * view * vec4(position + vec3(id), 1.0);
 
