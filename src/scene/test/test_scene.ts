@@ -1,5 +1,3 @@
-import * as THREE from 'three'
-
 export const demoVertexCount = 20
 
 const rowFloats = 11; // float bytes = 32 / 4
