@@ -48,7 +48,6 @@ function createWorker(self) {
         const cos_x = Math.cos(r_x), sin_x = Math.sin(r_x);
         const cos_y = Math.cos(r_y), sin_y = Math.sin(r_y);
         const cos_z = Math.cos(r_z), sin_z = Math.sin(r_z);
-        console.log(cos_x, cos_y, cos_z)
 
         // Rotation matrices
         const Rx = [1,     0,      0, 
