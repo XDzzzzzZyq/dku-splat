@@ -2,7 +2,9 @@ version: '3.9'
 
 services:
   frontend:
-    build: .
+    build:
+      context: .
+      target: prod
     command: bash -c "npm run dev -- --host 0.0.0.0"
     volumes:
       - ./:/app
@@ -13,9 +15,19 @@ services:
       - CHOKIDAR_USEPOLLING=true
 
   backend:
-    build: .
+    build:
+      context: .
+      target: prod
     command: bash -lc "source /opt/conda/etc/profile.d/conda.sh && conda activate dku-splat && uvicorn src.scripts.load_ply:app --host 0.0.0.0 --port 8000 --reload"
     volumes:
       - ./:/app
     ports:
       - "8000:8000"
+
+  test:
+    build:
+      context: .
+      target: test
+    command: python -m unittest discover -s tests
+    volumes:
+      - ./:/app

@@ -18,10 +18,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and start containers
+      - name: Build and run Python tests
         run: |
-          docker compose up --build -d
+          # Build only the 'test' stage
+          docker compose build --pull --no-cache test
+          
+          # Run the test service
+          docker compose run --rm test
+
+      - name: Build production images
+        run: |
+          docker compose build --pull frontend backend
 
       - name: Cleanup
         run: |
-          docker compose down --rmi all
+          docker compose down --remove-orphans

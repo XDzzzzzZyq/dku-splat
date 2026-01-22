@@ -1,5 +1,5 @@
 # ---------- Base image ----------
-FROM node:20-bullseye
+FROM node:20-bullseye AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -44,5 +44,14 @@ RUN npm ci
 # Copy rest of the project
 COPY . .
 
-# ---------- Default command ----------
+# --------------------------------------------------
+# ---------- Python test stage ----------
+FROM base AS test
+
+RUN python -m unittest discover -s tests
+
+# --------------------------------------------------
+# ---------- Production / dev stage ----------
+FROM base AS prod
+
 CMD ["npm", "run", "dev"]
