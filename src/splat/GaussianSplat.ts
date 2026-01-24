@@ -28,7 +28,7 @@ export class GaussianSplat {
       transparent: true,
       depthWrite: false,
       blending: THREE.NormalBlending,
-      side: THREE.DoubleSide,
+      side: THREE.BackSide,
       vertexShader: vert,
       fragmentShader: frag,
       uniforms: {
