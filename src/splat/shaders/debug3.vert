@@ -12,6 +12,8 @@ in vec3 position;
 out vec4 vColor;
 out vec2 vPosition;
 
+out float scale;
+
 vec4 unpackF32ToRGB8(float v)
 {
     uint bits = floatBitsToUint(v);
@@ -71,7 +73,9 @@ void main()
     vec2 center = vec2(pos_proj) / pos_proj.w;
     vec2 ax_1 = min(sqrt(lambda1), 1024.0) * ax_diag;
     vec2 ax_2 = min(sqrt(lambda2), 1024.0) * vec2(ax_diag.y, -ax_diag.x);
-    gl_Position = vec4(center + position.x * ax_1 + position.y * ax_2, 0.0, 1.0);
+
+    scale = 6.0;
+    gl_Position = vec4(center + position.x * ax_1 * scale + position.y * ax_2 * scale, 0.0, 1.0);
 
 
     vPosition = vec2(position);
