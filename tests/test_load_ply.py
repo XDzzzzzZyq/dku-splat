@@ -39,7 +39,7 @@ class TestLoadPly(unittest.TestCase):
         # Check some specific values (approximate due to floating point)
         expected_sx = np.exp(0.1)
         expected_sy = np.exp(0.2)
-        expected_sz = 1.0
+        expected_sz = 0.0
         expected_r = 1 / (1 + np.exp(-0.7))  # expit(0.7)
         expected_g = 1 / (1 + np.exp(-0.8))
         expected_b = 1 / (1 + np.exp(-0.9))

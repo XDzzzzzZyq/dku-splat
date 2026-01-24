@@ -24,6 +24,12 @@ docker compose up frontend backend
 ```
 Once running, access the application via your browser at the address specified by the frontend service.
 
+## Test
+Start the frontend and backend services:
+```bash
+docker compose up test
+```
+
 ### Development Notes
 Changes to frontend or backend code may require rebuilding the corresponding Docker image.
 
