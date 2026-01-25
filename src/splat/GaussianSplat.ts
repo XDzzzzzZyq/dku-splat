@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import vert from './shaders/debug3.vert?raw'
-import frag from './shaders/debug3.frag?raw'
+import vert from './shaders/splat.vert?raw'
+import frag from './shaders/splat.frag?raw'
 
 export class GaussianSplat {
   mesh: THREE.Mesh
