@@ -72,8 +72,13 @@ def _load_ply(filename):
     r = v["f_dc_0"]; g = v["f_dc_1"]; b = v["f_dc_2"]
     sh0 = np.stack([r, g, b], axis=1)
 
+    r1 = v["f_rest_0"]; g1 = v["f_rest_1"]; b1 = v["f_rest_2"]
+    r2 = v["f_rest_3"]; g2 = v["f_rest_4"]; b2 = v["f_rest_5"]
+    r3 = v["f_rest_6"]; g3 = v["f_rest_7"]; b3 = v["f_rest_8"]
+    sh1 = np.stack([r1, g1, b1, r2, g2, b2, r3, g3, b3], axis=1)
+
     X = np.stack([x, y, z, opc, sx, sy, sz], axis=1)
-    X = np.concatenate([X, rot, sh0], axis=1)
+    X = np.concatenate([X, rot, sh0, sh1], axis=1)
     return X.astype(np.float32)
 
 @app.get("/ply")

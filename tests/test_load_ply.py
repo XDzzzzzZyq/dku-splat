@@ -16,11 +16,26 @@ class TestLoadPly(unittest.TestCase):
     def test_load_ply(self, mock_read):
         # Create mock vertex data as a structured array
         mock_data = np.array([
-            (1.0, 2.0, 3.0, 0.5, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
-        ], dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('opacity', 'f4'),
-                  ('scale_0', 'f4'), ('scale_1', 'f4'), ('rot_0', 'f4'), ('rot_1', 'f4'),
-                  ('rot_2', 'f4'), ('rot_3', 'f4'), ('f_dc_0', 'f4'),
-                  ('f_dc_1', 'f4'), ('f_dc_2', 'f4')])
+            (
+                1.0, 2.0, 3.0, 0.5,  # pos + opacity
+                0.1, 0.2,            # scales (sz derived as 0)
+                0.0, 0.0, 0.0, 0.0,  # rot quaternion (identity-ish)
+                # SH0 (dc)
+                0.7, 0.8, 0.9,
+                # SH1 (first order)
+                0.11, 0.12, 0.13,
+                0.21, 0.22, 0.23,
+                0.31, 0.32, 0.33,
+            )
+        ], dtype=[
+            ('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('opacity', 'f4'),
+            ('scale_0', 'f4'), ('scale_1', 'f4'),
+            ('rot_0', 'f4'), ('rot_1', 'f4'), ('rot_2', 'f4'), ('rot_3', 'f4'),
+            ('f_dc_0', 'f4'), ('f_dc_1', 'f4'), ('f_dc_2', 'f4'),
+            ('f_rest_0', 'f4'), ('f_rest_1', 'f4'), ('f_rest_2', 'f4'),
+            ('f_rest_3', 'f4'), ('f_rest_4', 'f4'), ('f_rest_5', 'f4'),
+            ('f_rest_6', 'f4'), ('f_rest_7', 'f4'), ('f_rest_8', 'f4'),
+        ])
 
         mock_vertex = MagicMock()
         mock_vertex.data = mock_data
@@ -50,9 +65,20 @@ class TestLoadPly(unittest.TestCase):
         np.testing.assert_almost_equal(result[0, 5], expected_sy)  # sy
         np.testing.assert_almost_equal(result[0, 6], expected_sz)  # sz
         # Euler angles would require calculation, skipping for brevity
-        np.testing.assert_almost_equal(result[0, 10], 0.7)  # sh_0_r
-        np.testing.assert_almost_equal(result[0, 11], 0.8)  # sh_0_g
-        np.testing.assert_almost_equal(result[0, 12], 0.9)  # sh_0_b
+        # SH0 (dc)
+        np.testing.assert_almost_equal(result[0, 10], 0.7)
+        np.testing.assert_almost_equal(result[0, 11], 0.8)
+        np.testing.assert_almost_equal(result[0, 12], 0.9)
+        # SH1 (first order) sequence
+        np.testing.assert_almost_equal(result[0, 13], 0.11)
+        np.testing.assert_almost_equal(result[0, 14], 0.12)
+        np.testing.assert_almost_equal(result[0, 15], 0.13)
+        np.testing.assert_almost_equal(result[0, 16], 0.21)
+        np.testing.assert_almost_equal(result[0, 17], 0.22)
+        np.testing.assert_almost_equal(result[0, 18], 0.23)
+        np.testing.assert_almost_equal(result[0, 19], 0.31)
+        np.testing.assert_almost_equal(result[0, 20], 0.32)
+        np.testing.assert_almost_equal(result[0, 21], 0.33)
 
 if __name__ == '__main__':
     unittest.main()

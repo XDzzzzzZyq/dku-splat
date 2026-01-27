@@ -96,11 +96,12 @@ function createWorker(self) {
     }
 
     function calc_sh_color(sh_coef){
+        const x = 0, y = 1, z = 0; // sample direction
         const C0 = 0.28209479177387814
         const C1 = 0.4886025119029199
-        return [C0 * sh_coef[0], 
-                C0 * sh_coef[1], 
-                C0 * sh_coef[2]];
+        return [0.5 + C0 * sh_coef[0] + C1 * (-y * sh_coef[3] + z * sh_coef[6] - x * sh_coef[9 ]), 
+                0.5 + C0 * sh_coef[1] + C1 * (-y * sh_coef[4] + z * sh_coef[7] - x * sh_coef[10]), 
+                0.5 + C0 * sh_coef[2] + C1 * (-y * sh_coef[5] + z * sh_coef[8] - x * sh_coef[11])];
     }
 
     /*
@@ -152,7 +153,7 @@ function createWorker(self) {
             texdata[rowFloats * i + 6] = packHalf2x16(cov[4], cov[5]);
             // color will be calculated in separate texture
 
-            const sh_coef = new Float32Array(f_buffer.buffer, (rowFloats_buffer * i + 10) * Float32Array.BYTES_PER_ELEMENT, 3);
+            const sh_coef = new Float32Array(f_buffer.buffer, (rowFloats_buffer * i + 10) * Float32Array.BYTES_PER_ELEMENT, 3 + 9);
             const sh_color = calc_sh_color(sh_coef);
             texdata_c[4 * (rowFloats * i + 7) + 0] = float_to_byte(sh_color[0]);
             texdata_c[4 * (rowFloats * i + 7) + 1] = float_to_byte(sh_color[1]);
