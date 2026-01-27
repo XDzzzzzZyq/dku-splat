@@ -1,10 +1,10 @@
 # DKU Splat
 
-**DKU Splat** is a WebGL-based implementation of **Reflective Gaussian Splatting (Ref-GS)** for real-time rendering of reflective surfaces in the browser. The project provides a containerized development and deployment workflow for DKU campus nevigation.
+**DKU Splat** is a Three.js-based implementation of **Reflective Gaussian Splatting (Ref-GS)** for real-time rendering of reflective surfaces in the browser. The project provides a containerized development and deployment workflow for DKU campus nevigation.
 
 ## Features
 
-- WebGL-based real-time rendering  
+- Three.js-based real-time rendering, supports both WebGL and WebGPU backend.
 - Implementation of **Reflective Gaussian Splatting**  
 - Fully containerized frontend and backend  
 - Simple build and run workflow with Docker Compose 
