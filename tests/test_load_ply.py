@@ -41,9 +41,6 @@ class TestLoadPly(unittest.TestCase):
         expected_sx = np.exp(0.1)
         expected_sy = np.exp(0.2)
         expected_sz = 0.0
-        expected_r = 1 / (1 + np.exp(-0.7))  # expit(0.7)
-        expected_g = 1 / (1 + np.exp(-0.8))
-        expected_b = 1 / (1 + np.exp(-0.9))
 
         np.testing.assert_almost_equal(result[0, 0], 1.0)  # x
         np.testing.assert_almost_equal(result[0, 1], 2.0)  # y
@@ -53,9 +50,9 @@ class TestLoadPly(unittest.TestCase):
         np.testing.assert_almost_equal(result[0, 5], expected_sy)  # sy
         np.testing.assert_almost_equal(result[0, 6], expected_sz)  # sz
         # Euler angles would require calculation, skipping for brevity
-        np.testing.assert_almost_equal(result[0, 10], expected_r)  # r
-        np.testing.assert_almost_equal(result[0, 11], expected_g)  # g
-        np.testing.assert_almost_equal(result[0, 12], expected_b)  # b
+        np.testing.assert_almost_equal(result[0, 10], 0.7)  # sh_0_r
+        np.testing.assert_almost_equal(result[0, 11], 0.8)  # sh_0_g
+        np.testing.assert_almost_equal(result[0, 12], 0.9)  # sh_0_b
 
 if __name__ == '__main__':
     unittest.main()
