@@ -6,7 +6,7 @@ import { CONFIG } from "../../config.js";
 export class GaussianSplatWebGL {
   mesh: THREE.Mesh
   worker: Worker | null = null
-  texture: THREE.DataTexture | null = null
+  data_texture: THREE.DataTexture | null = null
   idx_buffer: THREE.DataTexture | null = null
   vertexCount = 0
 
@@ -32,8 +32,8 @@ export class GaussianSplatWebGL {
       vertexShader: vert,
       fragmentShader: frag,
       uniforms: {
-        idx_buffer: { value:null} ,
-        u_texture: { value: null },
+        idx_buffer: { value: null},
+        u_data: { value: null },
         projection: { value: new THREE.Matrix4() },
         view: { value: new THREE.Matrix4() },
         focal: { value: new THREE.Vector3(1, 1, 1) },
@@ -85,8 +85,8 @@ export class GaussianSplatWebGL {
     tex.wrapS = THREE.ClampToEdgeWrapping
     tex.wrapT = THREE.ClampToEdgeWrapping
     tex.generateMipmaps = false
-    this.texture = tex
-    ;(this.mesh.material as THREE.RawShaderMaterial).uniforms.u_texture.value = tex
+    this.data_texture = tex
+    ;(this.mesh.material as THREE.RawShaderMaterial).uniforms.u_data.value = tex
   }
 
   handleDepthIndex(depthIndex: Uint32Array, vertexCount: number) {

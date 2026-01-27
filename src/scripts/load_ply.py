@@ -69,11 +69,11 @@ def _load_ply(filename):
     qw = v["rot_0"]; qx = v["rot_1"]; qy = v["rot_2"]; qz = v["rot_3"]
     rot = quaternion_to_eular(qw, qx, qy, qz)
 
-    r = expit(v["diffuse_color_0"]); g = expit(v["diffuse_color_1"]); b = expit(v["diffuse_color_2"])
-    color = np.stack([r, g, b, opc], axis=1)
+    r = expit(v["f_dc_0"]); g = expit(v["f_dc_1"]); b = expit(v["f_dc_2"])
+    sh0 = np.stack([r, g, b], axis=1)
 
     X = np.stack([x, y, z, opc, sx, sy, sz], axis=1)
-    X = np.concatenate([X, rot, color], axis=1)
+    X = np.concatenate([X, rot, sh0], axis=1)
     return X.astype(np.float32)
 
 @app.get("/ply")

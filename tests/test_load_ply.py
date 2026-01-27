@@ -8,6 +8,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
 sys.path.insert(0, project_root)
 
 from src.scripts.load_ply import _load_ply
+from _read_config import config
 
 class TestLoadPly(unittest.TestCase):
 
@@ -18,8 +19,8 @@ class TestLoadPly(unittest.TestCase):
             (1.0, 2.0, 3.0, 0.5, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
         ], dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('opacity', 'f4'),
                   ('scale_0', 'f4'), ('scale_1', 'f4'), ('rot_0', 'f4'), ('rot_1', 'f4'),
-                  ('rot_2', 'f4'), ('rot_3', 'f4'), ('diffuse_color_0', 'f4'),
-                  ('diffuse_color_1', 'f4'), ('diffuse_color_2', 'f4')])
+                  ('rot_2', 'f4'), ('rot_3', 'f4'), ('f_dc_0', 'f4'),
+                  ('f_dc_1', 'f4'), ('f_dc_2', 'f4')])
 
         mock_vertex = MagicMock()
         mock_vertex.data = mock_data
@@ -33,7 +34,7 @@ class TestLoadPly(unittest.TestCase):
         result = _load_ply('test')
 
         # Assert shape and dtype
-        self.assertEqual(result.shape, (1, 14))
+        self.assertEqual(result.shape, (1, config['RAW_FLOAT_PER_SPLAT']))
         self.assertEqual(result.dtype, np.float32)
 
         # Check some specific values (approximate due to floating point)
@@ -55,7 +56,6 @@ class TestLoadPly(unittest.TestCase):
         np.testing.assert_almost_equal(result[0, 10], expected_r)  # r
         np.testing.assert_almost_equal(result[0, 11], expected_g)  # g
         np.testing.assert_almost_equal(result[0, 12], expected_b)  # b
-        np.testing.assert_almost_equal(result[0, 13], 0.5)  # opacity again
 
 if __name__ == '__main__':
     unittest.main()

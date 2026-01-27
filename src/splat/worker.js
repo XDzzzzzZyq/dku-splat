@@ -95,6 +95,14 @@ function createWorker(self) {
         return Math.min(Math.max(Math.round(v * 255), 0), 255)
     }
 
+    function calc_sh_color(sh_coef){
+        const C0 = 0.28209479177387814
+        const C1 = 0.4886025119029199
+        return [C0 * sh_coef[0], 
+                C0 * sh_coef[1], 
+                C0 * sh_coef[2]];
+    }
+
     /*
     Buffer Layout:
     | pos : vec3(3 * 4) | opacity : float(4) | scl : vec3(3 * 4) | rot : vec3(3 * 4) | color : vec4(4 * 4) |
@@ -142,10 +150,13 @@ function createWorker(self) {
             texdata[rowFloats * i + 4] = packHalf2x16(cov[0], cov[1]);
             texdata[rowFloats * i + 5] = packHalf2x16(cov[2], cov[3]);
             texdata[rowFloats * i + 6] = packHalf2x16(cov[4], cov[5]);
-            // colors (assume u8 at buffer offset)
-            texdata_c[4 * (rowFloats * i + 7) + 0] = float_to_byte(f_buffer[rowFloats_buffer * i + 10]);
-            texdata_c[4 * (rowFloats * i + 7) + 1] = float_to_byte(f_buffer[rowFloats_buffer * i + 11]);
-            texdata_c[4 * (rowFloats * i + 7) + 2] = float_to_byte(f_buffer[rowFloats_buffer * i + 12]);
+            // color will be calculated in separate texture
+
+            const sh_coef = new Float32Array(f_buffer.buffer, (rowFloats_buffer * i + 10) * Float32Array.BYTES_PER_ELEMENT, 3);
+            const sh_color = calc_sh_color(sh_coef);
+            texdata_c[4 * (rowFloats * i + 7) + 0] = float_to_byte(sh_color[0]);
+            texdata_c[4 * (rowFloats * i + 7) + 1] = float_to_byte(sh_color[1]);
+            texdata_c[4 * (rowFloats * i + 7) + 2] = float_to_byte(sh_color[2]);
             texdata_c[4 * (rowFloats * i + 7) + 3] = float_to_byte(f_buffer[rowFloats_buffer * i + 13]);
         }
 

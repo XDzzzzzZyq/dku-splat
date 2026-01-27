@@ -3,7 +3,8 @@ precision highp usampler2D;
 precision highp int;
 
 uniform usampler2D idx_buffer;
-uniform highp sampler2D u_texture;
+uniform highp sampler2D u_data;
+uniform highp sampler2D u_color;
 uniform mat4 projection, view;
 uniform vec3 focal;
 
@@ -44,8 +45,8 @@ void main()
     int id = int(texelFetch(idx_buffer, ivec2(gl_InstanceID % 1024, gl_InstanceID / 1024), 0).r);
     int row = (id % 1024) * 2;
     int col = id / 1024;
-    vec4 pix1 = texelFetch(u_texture, ivec2(row  , col), 0);
-    vec4 pix2 = texelFetch(u_texture, ivec2(row+1, col), 0);
+    vec4 pix1 = texelFetch(u_data, ivec2(row  , col), 0);
+    vec4 pix2 = texelFetch(u_data, ivec2(row+1, col), 0);
 
     vec4 pos_view = view * vec4(pix1.xyz, 1.0); // relative position to camera
     vec4 pos_proj = projection * pos_view;
@@ -79,5 +80,6 @@ void main()
 
 
     vPosition = vec2(position);
+
     vColor = unpackF32ToRGB8(pix2.a);
 }  
