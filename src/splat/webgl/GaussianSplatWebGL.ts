@@ -61,7 +61,7 @@ export class GaussianSplatWebGL {
     }
 
     try {
-      this.worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
+      this.worker = new Worker(new URL('../worker.js', import.meta.url), { type: 'module' })
       this.worker.onmessage = (e) => {
         if (e.data.texdata) {
           this.handleTexdata(e.data.texdata, e.data.texwidth, e.data.texheight)

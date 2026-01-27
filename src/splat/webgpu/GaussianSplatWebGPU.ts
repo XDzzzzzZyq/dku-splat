@@ -30,7 +30,7 @@ export class GaussianSplatWebGPU {
     this.mesh.visible = false
 
     try {
-      this.worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
+      this.worker = new Worker(new URL('../worker.js', import.meta.url), { type: 'module' })
       this.worker.onmessage = (e) => {
         if (e.data.texdata) {
           this.handleTexdata(e.data.texdata, e.data.texwidth, e.data.texheight)
@@ -175,8 +175,17 @@ export class GaussianSplatWebGPU {
     if (!this.gpu) return
     const width = 1024
     const height = Math.ceil(vertexCount / 1024)
-    const texture = this.gpu.device.createTexture({ size: { width, height }, format: 'r32uint', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST })
-    this.gpu.device.queue.writeTexture({ texture }, data, { bytesPerRow: width * 4 }, { width, height })
+    const texture = this.gpu.device.createTexture(
+        { size: { width, height }, 
+        format: 'r32uint', 
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST 
+    })
+    this.gpu.device.queue.writeTexture(
+        { texture }, 
+        data, 
+        { bytesPerRow: width * 4 }, 
+        { width, height }
+    )
     this.gpu.idxTexture = texture
     this.gpu.vertexCount = vertexCount
     this.tryCreateBindGroup()
@@ -184,6 +193,7 @@ export class GaussianSplatWebGPU {
 
   tryCreateBindGroup() {
     if (!this.gpu || !this.gpu.splatTexture || !this.gpu.idxTexture) return
+    console.log('Creating WebGPU bind group')
     const layout = this.gpu.pipeline.getBindGroupLayout(0)
     this.gpu.bindGroup = this.gpu.device.createBindGroup({
       layout,

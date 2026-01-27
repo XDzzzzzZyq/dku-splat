@@ -21,10 +21,10 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.6))
 
 let splat: any
 if (render_capabilities === 'WebGPU') {
-  const mod = await import('./splat/GaussianSplatWebGPU')
+  const mod = await import('./splat/webgpu/GaussianSplatWebGPU')
   splat = new mod.GaussianSplatWebGPU()
 } else {
-  const mod = await import('./splat/GaussianSplatWebGL')
+  const mod = await import('./splat/webgl/GaussianSplatWebGL')
   splat = new mod.GaussianSplatWebGL()
 }
 scene.add(splat.mesh)
