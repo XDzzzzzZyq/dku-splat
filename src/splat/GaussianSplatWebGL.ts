@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import vert from './shaders/splat.vert?raw'
 import frag from './shaders/splat.frag?raw'
 
-export class GaussianSplat {
+export class GaussianSplatWebGL {
   mesh: THREE.Mesh
   worker: Worker | null = null
   texture: THREE.DataTexture | null = null
@@ -10,7 +10,6 @@ export class GaussianSplat {
   vertexCount = 0
 
   constructor(count = 0) {
-    // Quad positions (3 components per vertex; z=0) — three.js expects vec3 for bounding
     const quad = new Float32Array([
       -1, -1, 0,
        1, -1, 0,
@@ -42,39 +41,31 @@ export class GaussianSplat {
 
     this.mesh = new THREE.Mesh(geometry, material)
 
-    // one-time shader compile/info log check (helps surface compile/link errors)
     ;(this.mesh as any).onBeforeRender = (renderer: any) => {
       const mat = this.mesh.material as any
       if ((this as any)._shaderChecked) return
-      (this as any)._shaderChecked = true
+      ;(this as any)._shaderChecked = true
       try {
         const gl = renderer.getContext()
-
         console.log(gl.getParameter(gl.VERSION))
         console.log(gl.getParameter(gl.SHADING_LANGUAGE_VERSION))
-
         const err = gl.getError();
         if (err !== gl.NO_ERROR) {
           console.error('WebGL error:', err);
         } else{
-          console.log("GL no error")
+          console.log('GL no error')
         }
       } catch (err) {
         console.warn('Shader compile check failed', err)
       }
     }
 
-    // spawn worker
     try {
-      console.log("creating worker");
-      this.worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+      this.worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
       this.worker.onmessage = (e) => {
-        console.log("Main thread received message", e.data);
         if (e.data.texdata) {
-          console.log("Main thread received texture data from worker");
           this.handleTexdata(e.data.texdata, e.data.texwidth, e.data.texheight)
         } else if (e.data.depthIndex) {
-          console.log("Main thread received depth index from worker");
           this.handleDepthIndex(e.data.depthIndex, e.data.vertexCount)
         }
       }
@@ -85,51 +76,38 @@ export class GaussianSplat {
   }
 
   handleTexdata(texdata: Uint32Array, texwidth: number, texheight: number) {
-    // create a three.js DataTexture using float format. The worker packed some values as uints
-    // into the same buffer; those bit patterns are preserved when viewed as Float32Array.
     const floatArray = texdata instanceof ArrayBuffer ? new Float32Array(texdata) : new Float32Array((texdata as any).buffer || texdata)
-    const tex = new THREE.DataTexture(
-      floatArray,
-      texwidth, 
-      texheight, 
-      THREE.RGBAFormat, 
-      THREE.FloatType
-    )
-
-    tex.needsUpdate = true;
+    const tex = new THREE.DataTexture(floatArray, texwidth, texheight, THREE.RGBAFormat, THREE.FloatType)
+    tex.needsUpdate = true
     tex.magFilter = THREE.NearestFilter
     tex.minFilter = THREE.NearestFilter
-    tex.wrapS = THREE.ClampToEdgeWrapping;
-    tex.wrapT = THREE.ClampToEdgeWrapping;
-    tex.generateMipmaps = false;
+    tex.wrapS = THREE.ClampToEdgeWrapping
+    tex.wrapT = THREE.ClampToEdgeWrapping
+    tex.generateMipmaps = false
     this.texture = tex
     ;(this.mesh.material as THREE.RawShaderMaterial).uniforms.u_texture.value = tex
   }
 
   handleDepthIndex(depthIndex: Uint32Array, vertexCount: number) {
-
     const texture = new THREE.DataTexture(
       depthIndex,
       1024,
       Math.ceil(vertexCount / 1024),
       THREE.RedIntegerFormat,
       THREE.UnsignedIntType
-    );
-    texture.needsUpdate = true;
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.generateMipmaps = false;
-    (this.mesh.material as THREE.RawShaderMaterial).uniforms.idx_buffer.value = texture;
+    )
+    texture.needsUpdate = true
+    texture.magFilter = THREE.NearestFilter
+    texture.minFilter = THREE.NearestFilter
+    texture.wrapS = THREE.ClampToEdgeWrapping
+    texture.wrapT = THREE.ClampToEdgeWrapping
+    texture.generateMipmaps = false
+    ;(this.mesh.material as THREE.RawShaderMaterial).uniforms.idx_buffer.value = texture
 
-    const geom = this.mesh.geometry as THREE.InstancedBufferGeometry;
-    geom.instanceCount = vertexCount;
-    this.vertexCount = vertexCount;
-    this.idx_buffer = texture;
-
-    console.log(">> Updated geometry with", vertexCount, "instances", depthIndex);
-    console.log(">> Geometry:", geom.instanceCount);
+    const geom = this.mesh.geometry as THREE.InstancedBufferGeometry
+    geom.instanceCount = vertexCount
+    this.vertexCount = vertexCount
+    this.idx_buffer = texture
   }
 
   setBuffer(buffer: ArrayBuffer, vertexCount: number) {
@@ -142,8 +120,15 @@ export class GaussianSplat {
     material.uniforms.view.value.fromArray(viewMatrix)
     material.uniforms.projection.value.fromArray(projectionMatrix)
     material.uniforms.focal.value.set(fx, fy, fz)
-
     if (!this.worker) return
     this.worker.postMessage({ view: viewMatrix })
+  }
+
+  toggleVisible() {
+    this.mesh.visible = !this.mesh.visible
+  }
+
+  renderOverlay() {
+    // no-op for WebGL
   }
 }

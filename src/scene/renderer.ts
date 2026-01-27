@@ -1,19 +1,35 @@
-import * as THREE from 'three'
+import * as THREE from 'three';
+
+let renderer: THREE.WebGLRenderer | any;
 
 const canvas = document.createElement('canvas');
 document.body.appendChild(canvas);
 
-const gl = canvas.getContext('webgl2');
-if (!gl) {
-    alert('WebGL2 is not supported in your browser.');
+async function initRenderer() {
+    if ('gpu' in navigator) {
+        try {
+            const { default: WebGPURenderer } = await import(
+                'three/addons/renderers/webgpu/WebGPURenderer.js'
+            );
+
+            renderer = new WebGPURenderer({ canvas });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            console.log('Using WebGPU Renderer');
+            return;
+        } catch (e) {
+            console.warn('WebGPU available but renderer failed:', e);
+        }
+    }
+
+    // Fallback: WebGL
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    console.log('Using WebGL Renderer');
 }
 
-export const renderer = new THREE.WebGLRenderer({ 
-    canvas: canvas,
-    context: gl,
-    antialias: true,
-    alpha: true,
-})
-renderer.setPixelRatio(devicePixelRatio)
-renderer.setSize(window.innerWidth, window.innerHeight)
-renderer.setClearColor(0x111111)
+await initRenderer();
+export { renderer }

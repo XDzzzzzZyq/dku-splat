@@ -2,19 +2,31 @@ import * as THREE from 'three'
 import { renderer } from './scene/renderer'
 import { camera } from './scene/camera'
 import { controls } from './scene/controls'
-import { GaussianSplat } from './splat/GaussianSplat'
+// Auto-select splat implementation (WebGPU vs WebGL)
 import { Button3D } from './ui3d/Button3D'
 
 import {demoVertexCount, buf} from './scene/test/test_scene_cup'
 
-console.log("Renderer Capability:", renderer.capabilities.isWebGL2); // true for WebGL2
-console.log("Max Vertex Texture:", renderer.capabilities.maxVertexTextures); // for large instance textures
+// Log renderer capabilities where available (WebGPU renderer may not expose same fields)
+const render_capabilities =
+((renderer as any).capabilities?.isWebGL2 ?? false)
+  ? "Web GL2"
+  : "WebGPU";
+console.log("Renderer Capability:", render_capabilities)
+console.log("Max Vertex Texture:", (renderer as any).capabilities?.maxVertexTextures ?? 'n/a')
 
 const scene = new THREE.Scene()
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.6))
 
-const splat = new GaussianSplat()
+let splat: any
+if (render_capabilities === 'WebGPU') {
+  const mod = await import('./splat/GaussianSplatWebGPU')
+  splat = new mod.GaussianSplatWebGPU()
+} else {
+  const mod = await import('./splat/GaussianSplatWebGL')
+  splat = new mod.GaussianSplatWebGL()
+}
 scene.add(splat.mesh)
 
 // Create a small demo buffer (splat-style rows: 32 bytes per vertex)
@@ -27,7 +39,7 @@ splat.setBuffer(buf, demoVertexCount)
 const button = new Button3D()
 button.position.set(0.6, 0.4, -0.5)
 button.userData.onClick = () => {
-  splat.mesh.visible = !splat.mesh.visible
+  splat.toggleVisible()
 }
 scene.add(button)
 
@@ -56,11 +68,14 @@ function animate() {
     // ignore if method missing
   }
   renderer.render(scene, camera)
-  const gl = renderer.getContext()
-  const err = gl.getError();
-        if (err !== gl.NO_ERROR) {
-          console.error('WebGL error:', err);
-        }
+  splat.renderOverlay?.()
+  const gl = renderer.getContext?.()
+  if (gl && 'getError' in gl) {
+    const err = (gl as WebGL2RenderingContext).getError();
+    if (err !== (gl as WebGL2RenderingContext).NO_ERROR) {
+      console.error('WebGL error:', err);
+    }
+  }
 }
 
 animate()
