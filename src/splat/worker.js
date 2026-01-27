@@ -95,13 +95,13 @@ function createWorker(self) {
         return Math.min(Math.max(Math.round(v * 255), 0), 255)
     }
 
-    function calc_sh_color(sh_coef){
-        const x = 0, y = 1, z = 0; // sample direction
-        const C0 = 0.28209479177387814
-        const C1 = 0.4886025119029199
-        return [0.5 + C0 * sh_coef[0] + C1 * (-y * sh_coef[3] + z * sh_coef[6] - x * sh_coef[9 ]), 
-                0.5 + C0 * sh_coef[1] + C1 * (-y * sh_coef[4] + z * sh_coef[7] - x * sh_coef[10]), 
-                0.5 + C0 * sh_coef[2] + C1 * (-y * sh_coef[5] + z * sh_coef[8] - x * sh_coef[11])];
+    // Base color only: 0.5 + C0 * sh0
+    function calc_sh0_base_color(sh0_r, sh0_g, sh0_b){
+        const C0 = 0.28209479177387814;
+        const r = 0.5 + C0 * sh0_r;
+        const g = 0.5 + C0 * sh0_g;
+        const b = 0.5 + C0 * sh0_b;
+        return [r, g, b];
     }
 
     /*
@@ -117,7 +117,11 @@ function createWorker(self) {
         const f_buffer = new Float32Array(buffer);
 
         // CONFIG.DATA_TEXTURE_WIDTH splats per row
-        const pix_per_splat = 2;
+        // 4 pixels per splat:
+        //  p0: pos.xyz, opacity
+        //  p1: covPack.xyz (half2x16 packed), baseColorPackedRGBA8
+        //  p2/p3: sh1 packed as half2x16 (5 u32 words = 9 halfs + pad)
+        const pix_per_splat = 4;
         const rowFloats = pix_per_splat * 4;
 
         const rowFloats_buffer = CONFIG.RAW_FLOAT_PER_SPLAT;
@@ -151,14 +155,24 @@ function createWorker(self) {
             texdata[rowFloats * i + 4] = packHalf2x16(cov[0], cov[1]);
             texdata[rowFloats * i + 5] = packHalf2x16(cov[2], cov[3]);
             texdata[rowFloats * i + 6] = packHalf2x16(cov[4], cov[5]);
-            // color will be calculated in separate texture
+            // base color (SH0 only) packed into RGBA8 (stored in pix1.a as float bits)
+            const sh0_r = f_buffer[rowFloats_buffer * i + 10];
+            const sh0_g = f_buffer[rowFloats_buffer * i + 11];
+            const sh0_b = f_buffer[rowFloats_buffer * i + 12];
+            const base = calc_sh0_base_color(sh0_r, sh0_g, sh0_b);
+            texdata_c[4 * (rowFloats * i + 7) + 0] = float_to_byte(base[0]);
+            texdata_c[4 * (rowFloats * i + 7) + 1] = float_to_byte(base[1]);
+            texdata_c[4 * (rowFloats * i + 7) + 2] = float_to_byte(base[2]);
+            texdata_c[4 * (rowFloats * i + 7) + 3] = 255;
 
-            const sh_coef = new Float32Array(f_buffer.buffer, (rowFloats_buffer * i + 10) * Float32Array.BYTES_PER_ELEMENT, 3 + 9);
-            const sh_color = calc_sh_color(sh_coef);
-            texdata_c[4 * (rowFloats * i + 7) + 0] = float_to_byte(sh_color[0]);
-            texdata_c[4 * (rowFloats * i + 7) + 1] = float_to_byte(sh_color[1]);
-            texdata_c[4 * (rowFloats * i + 7) + 2] = float_to_byte(sh_color[2]);
-            texdata_c[4 * (rowFloats * i + 7) + 3] = float_to_byte(f_buffer[rowFloats_buffer * i + 13]);
+            // SH1 (9 floats) packed into half2x16 words and stored as float bit-patterns
+            // Order matches load_ply: [r1,g1,b1,r2,g2,b2,r3,g3,b3]
+            const sh1 = new Float32Array(f_buffer.buffer, (rowFloats_buffer * i + 13) * Float32Array.BYTES_PER_ELEMENT, 9);
+            texdata[rowFloats * i +  8] = packHalf2x16(sh1[0], sh1[1]);
+            texdata[rowFloats * i +  9] = packHalf2x16(sh1[2], sh1[3]);
+            texdata[rowFloats * i + 10] = packHalf2x16(sh1[4], sh1[5]);
+            texdata[rowFloats * i + 11] = packHalf2x16(sh1[6], sh1[7]);
+            texdata[rowFloats * i + 12] = packHalf2x16(sh1[8], 0.0);
         }
 
         console.log(">> Worker gen texture:", texwidth, texheight, texdata.byteLength);

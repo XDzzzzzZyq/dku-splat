@@ -4,7 +4,6 @@ precision highp int;
 
 uniform usampler2D idx_buffer;
 uniform highp sampler2D u_data;
-uniform highp sampler2D u_color;
 uniform mat4 projection, view;
 uniform vec3 focal;
 
@@ -39,14 +38,22 @@ mat3 unpackCovariance(vec3 v)
                 u2.x, u3.x, u3.y);
 }
 
+vec3 evalSh1(vec3 baseColor, vec3 dir, vec3 c1, vec3 c2, vec3 c3) {
+    // first-order SH basis (approx): C1 * [x,y,z]
+    float C1 = 0.4886025119;
+    return baseColor + C1 * (dir.x * c1 + dir.y * c2 + dir.z * c3);
+}
+
 void main()
 {
     // load transform
     int id = int(texelFetch(idx_buffer, ivec2(gl_InstanceID % 1024, gl_InstanceID / 1024), 0).r);
-    int row = (id % 1024) * 2;
+    int row = (id % 1024) * 4;
     int col = id / 1024;
     vec4 pix1 = texelFetch(u_data, ivec2(row  , col), 0);
     vec4 pix2 = texelFetch(u_data, ivec2(row+1, col), 0);
+    vec4 pix3 = texelFetch(u_data, ivec2(row+2, col), 0);
+    vec4 pix4 = texelFetch(u_data, ivec2(row+3, col), 0);
 
     vec4 pos_view = view * vec4(pix1.xyz, 1.0); // relative position to camera
     vec4 pos_proj = projection * pos_view;
@@ -81,5 +88,21 @@ void main()
 
     vPosition = vec2(position);
 
-    vColor = unpackF32ToRGB8(pix2.a);
+    // base color packed as RGB8 in pix2.a
+    vec3 baseColor = unpackF32ToRGB8(pix2.a).rgb;
+
+    // unpack SH1 (9 half floats) from pix3/pix4
+    vec2 sh01 = unpackF32ToHalf2(pix3.x);
+    vec2 sh23 = unpackF32ToHalf2(pix3.y);
+    vec2 sh45 = unpackF32ToHalf2(pix3.z);
+    vec2 sh67 = unpackF32ToHalf2(pix3.w);
+    vec2 sh89 = unpackF32ToHalf2(pix4.x);
+
+    vec3 c1 = vec3(sh01.x, sh01.y, sh23.x); // r1,g1,b1
+    vec3 c2 = vec3(sh23.y, sh45.x, sh45.y); // r2,g2,b2
+    vec3 c3 = vec3(sh67.x, sh67.y, sh89.x); // r3,g3,b3
+
+    vec3 dir = normalize(-pos_view.xyz);
+    vec3 rgb = clamp(evalSh1(baseColor, dir, c1, c2, c3), 0.0, 1.0);
+    vColor = vec4(rgb, 1.0);
 }  
