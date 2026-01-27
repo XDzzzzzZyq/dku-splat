@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-const preferWebGPU = true; // set true when scene materials are WebGPU-ready
+const preferWebGPU = false; // set true when scene materials are WebGPU-ready
 let renderer: THREE.WebGLRenderer | any;
 
 const canvas = document.createElement('canvas');

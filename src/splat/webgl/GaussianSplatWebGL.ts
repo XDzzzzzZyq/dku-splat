@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import vert from './shaders/splat.vert?raw'
 import frag from './shaders/splat.frag?raw'
+import { CONFIG } from "../../config.js";
 
 export class GaussianSplatWebGL {
   mesh: THREE.Mesh
@@ -91,8 +92,8 @@ export class GaussianSplatWebGL {
   handleDepthIndex(depthIndex: Uint32Array, vertexCount: number) {
     const texture = new THREE.DataTexture(
       depthIndex,
-      1024,
-      Math.ceil(vertexCount / 1024),
+      CONFIG.DATA_TEXTURE_WIDTH,
+      Math.ceil(vertexCount / CONFIG.DATA_TEXTURE_WIDTH),
       THREE.RedIntegerFormat,
       THREE.UnsignedIntType
     )

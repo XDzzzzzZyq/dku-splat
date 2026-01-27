@@ -102,17 +102,18 @@ function createWorker(self) {
     Data Texture Layout:
     | pos : vec3(3 * 4) | opacity : float(4) | cov : hvec3(3 * 4) | color : rgba(4) |
     */
+    // TODO: Using compute shader
     function generateTexture() {
         if (!buffer) return;
         const f_buffer = new Float32Array(buffer);
 
-        // 1024 splats per row
+        // CONFIG.DATA_TEXTURE_WIDTH splats per row
         const pix_per_splat = 2;
         const rowFloats = pix_per_splat * 4;
 
         const rowFloats_buffer = CONFIG.RAW_FLOAT_PER_SPLAT;
 
-        const rowSplats = 1024;
+        const rowSplats = CONFIG.DATA_TEXTURE_WIDTH;
         const texwidth = rowSplats * pix_per_splat;
         const texheight = Math.ceil(vertexCount / rowSplats);
 
@@ -174,7 +175,7 @@ function createWorker(self) {
         }
         let starts0 = new Uint32Array(256 * 256);
         for (let i = 1; i < 256 * 256; i++) starts0[i] = starts0[i - 1] + counts0[i - 1];
-        const w = 1024;
+        const w = CONFIG.DATA_TEXTURE_WIDTH;
         const h = Math.ceil(vertexCount / w);
         let depthIndex = new Uint32Array(w * h);
         for (let i = 0; i < vertexCount; i++) depthIndex[starts0[sizeList[i]]++] = i;
