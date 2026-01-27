@@ -34,9 +34,4 @@ async function initRenderer() {
 
 await initRenderer();
 
-window.addEventListener('resize', () => {
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-});
-
 export { renderer }

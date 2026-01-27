@@ -54,6 +54,17 @@ window.addEventListener('pointerdown', (e) => {
   hits[0]?.object.userData.onClick?.()
 })
 
+window.addEventListener('resize', () => {
+    const width = window.innerWidth
+    const height = window.innerHeight
+
+    camera.aspect = width / height
+    camera.updateProjectionMatrix()
+
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(window.devicePixelRatio);
+});
+
 function animate() {
   requestAnimationFrame(animate)
   controls.update()
