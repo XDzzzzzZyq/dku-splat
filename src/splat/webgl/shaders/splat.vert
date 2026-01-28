@@ -34,13 +34,13 @@ vec2 unpackF32ToHalf2(float raw){
     return unpackHalf2x16(floatBitsToUint(raw));
 }
 
-mat3 unpackCovariance(vec3 v)
+mat3 unpackRT(vec3 v)
 {
     vec2 u1 = unpackF32ToHalf2(v.x), u2 = unpackF32ToHalf2(v.y), u3 = unpackF32ToHalf2(v.z);
     // unpack upper triangle: xx, xy, xz, yy, yz, zz
-    return mat3(u1.x, u1.y, u2.x, 
-                u1.y, u2.y, u3.x, 
-                u2.x, u3.x, u3.y);
+    return transpose(mat3(u1.x, u1.y, 0.0, 
+                          u2.x, u2.y, 0.0, 
+                          u3.x, u3.y, 0.0));
 }
 
 vec3 evalSh1(vec3 baseColor, vec3 dir, vec3 c1, vec3 c2, vec3 c3) {
@@ -67,15 +67,16 @@ void main()
     float tan_a = focal.y / focal.z;
     float r = focal.x / focal.y;
 
-    mat3 cov = unpackCovariance(pix1.xyz);
+    mat3 RT = unpackRT(pix1.xyz);
     // GLSL fills column-major
-    mat3 J = mat3(
+    mat3 J = transpose(mat3(
         1. / (r * tan_a * pos_view.z), 0., -(pos_view.x) / (pos_view.z * pos_view.z) / (r * tan_a),
         0.,     1. / (tan_a * pos_view.z), -(pos_view.y) / (pos_view.z * pos_view.z) / (tan_a),
         0., 0., 0.
-    );
+    ));
 
-    mat3 T = transpose(J) * mat3(view);
+    mat3 T = J * mat3(view);
+    mat3 cov = RT * transpose(RT);
     mat2 cov_scr = mat2(T * cov * transpose(T));
 
     // Eigen decomposition

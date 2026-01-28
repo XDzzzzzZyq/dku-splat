@@ -44,8 +44,9 @@ function createWorker(self) {
         return (floatToHalf(x) | (floatToHalf(y) << 16)) >>> 0;
     }
 
-    // \Sigma = RSS^TR^T 
-    function to_covariance(s_x, s_y, s_z, r_x, r_y, r_z){
+    // Rotation * Scaling
+    // optimzed for s_z = 0
+    function to_RS(s_x, s_y, s_z, r_x, r_y, r_z){
         // Compute rotation matrix from Euler angles (XYZ order)
         const cos_x = Math.cos(r_x), sin_x = Math.sin(r_x);
         const cos_y = Math.cos(r_y), sin_y = Math.sin(r_y);
@@ -67,16 +68,8 @@ function createWorker(self) {
         // R = Rz * Ry * Rx
         const R = multiply3x3(Rz, multiply3x3(Ry, Rx));
 
-        // Scale squared
-        const S2 = [s_x * s_x, 0, 0, 
-                          0, s_y * s_y, 0, 
-                          0, 0, s_z * s_z];
-
-        // Covariance = temp * R^T
-        const cov = multiply3x3(R, multiply3x3(S2, transpose3x3(R)));
-
-        // Return upper triangle: xx, xy, xz, yy, yz, zz
-        return [cov[0], cov[1], cov[2], cov[4], cov[5], cov[8]];
+        // Return upper triangle: x1, y1, x2, y2, x3, y3
+        return [R[0]*s_x, R[1]*s_y, R[3]*s_x, R[4]*s_y, R[6]*s_x, R[7]*s_y];
     }
 
     function multiply3x3(A, B) {
@@ -85,10 +78,6 @@ function createWorker(self) {
             A[3]*B[0] + A[4]*B[3] + A[5]*B[6], A[3]*B[1] + A[4]*B[4] + A[5]*B[7], A[3]*B[2] + A[4]*B[5] + A[5]*B[8],
             A[6]*B[0] + A[7]*B[3] + A[8]*B[6], A[6]*B[1] + A[7]*B[4] + A[8]*B[7], A[6]*B[2] + A[7]*B[5] + A[8]*B[8]
         ];
-    }
-
-    function transpose3x3(M) {
-        return [M[0], M[3], M[6], M[1], M[4], M[7], M[2], M[5], M[8]];
     }
 
     function float_to_byte(v){
@@ -109,7 +98,7 @@ function createWorker(self) {
     | pos : vec3(3 * 4) | opacity : float(4) | scl : vec3(3 * 4) | rot : vec3(3 * 4) | color : vec4(4 * 4) |
 
     Data Texture Layout:
-    | pos : vec3(3 * 4) | opacity : float(4) | cov : hvec3(3 * 4) | color : rgba(4) |
+    | pos : vec3(3 * 4) | opacity : float(4) | RS : hvec3(3 * 4) | color : rgba(4) |
     */
     // TODO: Using compute shader
     function generateTexture() {
@@ -144,8 +133,8 @@ function createWorker(self) {
             // opcacity
             texdata_f[rowFloats * i + 3] = f_buffer[rowFloats_buffer * i + 3];
 
-            // pack covariance halves
-            const cov = to_covariance(
+            // pack RS halves
+            const RS = to_RS(
                 f_buffer[rowFloats_buffer * i + 4], 
                 f_buffer[rowFloats_buffer * i + 5], 
                 f_buffer[rowFloats_buffer * i + 6], 
@@ -153,9 +142,9 @@ function createWorker(self) {
                 f_buffer[rowFloats_buffer * i + 8], 
                 f_buffer[rowFloats_buffer * i + 9]
             );
-            texdata[rowFloats * i + 4] = packHalf2x16(cov[0], cov[1]);
-            texdata[rowFloats * i + 5] = packHalf2x16(cov[2], cov[3]);
-            texdata[rowFloats * i + 6] = packHalf2x16(cov[4], cov[5]);
+            texdata[rowFloats * i + 4] = packHalf2x16(RS[0], RS[1]);
+            texdata[rowFloats * i + 5] = packHalf2x16(RS[2], RS[3]);
+            texdata[rowFloats * i + 6] = packHalf2x16(RS[4], RS[5]);
             // base color (SH0 only) packed into RGBA8 (stored in pix1.a as float bits)
             const sh0_r = f_buffer[rowFloats_buffer * i + 10];
             const sh0_g = f_buffer[rowFloats_buffer * i + 11];
