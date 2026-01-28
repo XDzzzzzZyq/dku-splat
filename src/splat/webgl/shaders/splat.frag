@@ -7,6 +7,8 @@ in float scale;
 in vec3 vOriColor;
 in vec3 vPbr;
 
+in vec3 vViewPos;
+
 out vec4 fragColor;
 
 void main () {
@@ -14,5 +16,7 @@ void main () {
 
     if (A < -4.0) discard;
     float B = exp(A);
-    fragColor = vec4(vColor.rgb, B);
+    // Gaussian weight (also used as alpha). Keep this consistent across all channels.
+    float w = vColor.a * B;
+    fragColor = vec4(vColor.rgb, w);
 }

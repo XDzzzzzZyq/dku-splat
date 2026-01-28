@@ -17,7 +17,7 @@ class TestLoadPly(unittest.TestCase):
         # Create mock vertex data as a structured array
         mock_data = np.array([
             (
-                1.0, 2.0, 3.0, 0.5,  # pos + opacity
+                1.0, 2.0, 3.0, 0.0,  # pos + opacity
                 0.1, 0.2,            # scales (sz derived as 0)
                 0.0, 0.0, 0.0, 0.0,  # rot quaternion (identity-ish)
                 # PBR (sigmoid is applied in loader)

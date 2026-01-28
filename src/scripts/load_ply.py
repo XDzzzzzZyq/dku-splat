@@ -63,7 +63,7 @@ def _load_ply(filename):
     v = ply["vertex"].data
 
     x = v["x"]; y = v["y"]; z = v["z"]
-    opc = v["opacity"]
+    opc = expit(v["opacity"])
 
     sx = np.exp(v["scale_0"]); sy = np.exp(v["scale_1"]); sz = np.zeros_like(sx)
     qw = v["rot_0"]; qx = v["rot_1"]; qy = v["rot_2"]; qz = v["rot_3"]
