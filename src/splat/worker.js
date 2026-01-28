@@ -120,7 +120,8 @@ function createWorker(self) {
         // 4 pixels per splat:
         //  p0: pos.xyz, opacity
         //  p1: covPack.xyz (half2x16 packed), baseColorPackedRGBA8
-        //  p2/p3: sh1 packed as half2x16 (5 u32 words = 9 halfs + pad)
+        //  p2: sh1 packed as half2x16 (5 u32 words = 9 halfs + pad)
+        //  p3: sh1 packed as half2x16 & roughness/metallic/originColor
         const pix_per_splat = 4;
         const rowFloats = pix_per_splat * 4;
 

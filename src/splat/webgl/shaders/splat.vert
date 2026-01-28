@@ -53,17 +53,17 @@ void main()
     int id = int(texelFetch(idx_buffer, ivec2(gl_InstanceID % 1024, gl_InstanceID / 1024), 0).r);
     int row = (id % 1024) * 4;
     int col = id / 1024;
-    vec4 pix1 = texelFetch(u_data, ivec2(row  , col), 0);
-    vec4 pix2 = texelFetch(u_data, ivec2(row+1, col), 0);
-    vec4 pix3 = texelFetch(u_data, ivec2(row+2, col), 0);
-    vec4 pix4 = texelFetch(u_data, ivec2(row+3, col), 0);
+    vec4 pix0 = texelFetch(u_data, ivec2(row  , col), 0);
+    vec4 pix1 = texelFetch(u_data, ivec2(row+1, col), 0);
+    vec4 pix2 = texelFetch(u_data, ivec2(row+2, col), 0);
+    vec4 pix3 = texelFetch(u_data, ivec2(row+3, col), 0);
 
-    vec4 pos_view = view * vec4(pix1.xyz, 1.0); // relative position to camera
+    vec4 pos_view = view * vec4(pix0.xyz, 1.0); // relative position to camera
     vec4 pos_proj = projection * pos_view;
     float tan_a = focal.y / focal.z;
     float r = focal.x / focal.y;
 
-    mat3 cov = unpackCovariance(pix2.xyz);
+    mat3 cov = unpackCovariance(pix1.xyz);
     // GLSL fills column-major
     mat3 J = mat3(
         1. / (r * tan_a * pos_view.z), 0., -(pos_view.x) / (pos_view.z * pos_view.z) / (r * tan_a),
@@ -91,15 +91,15 @@ void main()
 
     vPosition = vec2(position);
 
-    // base color packed as RGB8 in pix2.a
-    vec3 baseColor = unpackF32ToRGB8(pix2.a).rgb;
+    // base color packed as RGB8 in pix1.a
+    vec3 baseColor = unpackF32ToRGB8(pix1.a).rgb;
 
-    // unpack SH1 (9 half floats) from pix3/pix4
-    vec2 sh01 = unpackF32ToHalf2(pix3.x);
-    vec2 sh23 = unpackF32ToHalf2(pix3.y);
-    vec2 sh45 = unpackF32ToHalf2(pix3.z);
-    vec2 sh67 = unpackF32ToHalf2(pix3.w);
-    vec2 sh89 = unpackF32ToHalf2(pix4.x);
+    // unpack SH1 (9 half floats) from pix2/pix3
+    vec2 sh01 = unpackF32ToHalf2(pix2.x);
+    vec2 sh23 = unpackF32ToHalf2(pix2.y);
+    vec2 sh45 = unpackF32ToHalf2(pix2.z);
+    vec2 sh67 = unpackF32ToHalf2(pix2.w);
+    vec2 sh89 = unpackF32ToHalf2(pix3.x);
 
     vec3 c1 = vec3(sh01.x, sh01.y, sh23.x); // r1,g1,b1
     vec3 c2 = vec3(sh23.y, sh45.x, sh45.y); // r2,g2,b2
@@ -107,11 +107,11 @@ void main()
 
     vec3 dir = normalize(-pos_view.xyz);
     vec3 rgb = clamp(evalSh1(baseColor, dir, c1, c2, c3), 0.0, 1.0);
-    vColor = vec4(rgb, 1.0);
+    vColor = vec4(rgb, pix0.a);
 
-    // New packed attributes (stored in pix4.yzw)
-    vOriColor = unpackF32ToRGB8(pix4.y).rgb;
-    vec2 rr = unpackF32ToHalf2(pix4.z); // refl, roughness
-    vec2 m0 = unpackF32ToHalf2(pix4.w); // metalness, pad
+    // New packed attributes (stored in pix3.yzw)
+    vOriColor = unpackF32ToRGB8(pix3.y).rgb;
+    vec2 rr = unpackF32ToHalf2(pix3.z); // refl, roughness
+    vec2 m0 = unpackF32ToHalf2(pix3.w); // metalness, pad
     vPbr = vec3(rr.x, rr.y, m0.x);
 }  
