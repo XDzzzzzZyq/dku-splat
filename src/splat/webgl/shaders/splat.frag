@@ -4,6 +4,9 @@ in vec4 vColor;
 in vec2 vPosition;
 in float scale;
 
+in vec3 vOriColor;
+in vec3 vPbr;
+
 out vec4 fragColor;
 
 void main () {

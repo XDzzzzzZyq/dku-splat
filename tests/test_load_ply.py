@@ -20,6 +20,10 @@ class TestLoadPly(unittest.TestCase):
                 1.0, 2.0, 3.0, 0.5,  # pos + opacity
                 0.1, 0.2,            # scales (sz derived as 0)
                 0.0, 0.0, 0.0, 0.0,  # rot quaternion (identity-ish)
+                # PBR (sigmoid is applied in loader)
+                0.0, 0.0, 0.0,        # refl_strength, roughness, metalness
+                # origin color (sigmoid is applied in loader)
+                0.0, 0.0, 0.0,        # ori_color_0/1/2
                 # SH0 (dc)
                 0.7, 0.8, 0.9,
                 # SH1 (first order)
@@ -31,6 +35,8 @@ class TestLoadPly(unittest.TestCase):
             ('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('opacity', 'f4'),
             ('scale_0', 'f4'), ('scale_1', 'f4'),
             ('rot_0', 'f4'), ('rot_1', 'f4'), ('rot_2', 'f4'), ('rot_3', 'f4'),
+            ('refl_strength', 'f4'), ('roughness', 'f4'), ('metalness', 'f4'),
+            ('ori_color_0', 'f4'), ('ori_color_1', 'f4'), ('ori_color_2', 'f4'),
             ('f_dc_0', 'f4'), ('f_dc_1', 'f4'), ('f_dc_2', 'f4'),
             ('f_rest_0', 'f4'), ('f_rest_1', 'f4'), ('f_rest_2', 'f4'),
             ('f_rest_3', 'f4'), ('f_rest_4', 'f4'), ('f_rest_5', 'f4'),
@@ -79,6 +85,15 @@ class TestLoadPly(unittest.TestCase):
         np.testing.assert_almost_equal(result[0, 19], 0.31)
         np.testing.assert_almost_equal(result[0, 20], 0.32)
         np.testing.assert_almost_equal(result[0, 21], 0.33)
+
+        # New channels are appended at the end: refl, roughness, metalness, ori_r, ori_g, ori_b
+        # With input 0.0, sigmoid(0.0) == 0.5
+        np.testing.assert_almost_equal(result[0, 22], 0.5)  # refl
+        np.testing.assert_almost_equal(result[0, 23], 0.5)  # roughness
+        np.testing.assert_almost_equal(result[0, 24], 0.5)  # metalness
+        np.testing.assert_almost_equal(result[0, 25], 0.5)  # ori_r
+        np.testing.assert_almost_equal(result[0, 26], 0.5)  # ori_g
+        np.testing.assert_almost_equal(result[0, 27], 0.5)  # ori_b
 
 if __name__ == '__main__':
     unittest.main()

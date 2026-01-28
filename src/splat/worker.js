@@ -173,6 +173,26 @@ function createWorker(self) {
             texdata[rowFloats * i + 10] = packHalf2x16(sh1[4], sh1[5]);
             texdata[rowFloats * i + 11] = packHalf2x16(sh1[6], sh1[7]);
             texdata[rowFloats * i + 12] = packHalf2x16(sh1[8], 0.0);
+
+            // New attributes (appended to raw buffer):
+            //  - refl/rough/metal packed as two half2x16 words
+            //  - origin color packed as RGB8
+            const refl = f_buffer[rowFloats_buffer * i + 22];
+            const rough = f_buffer[rowFloats_buffer * i + 23];
+            const metal = f_buffer[rowFloats_buffer * i + 24];
+            const ori_r = f_buffer[rowFloats_buffer * i + 25];
+            const ori_g = f_buffer[rowFloats_buffer * i + 26];
+            const ori_b = f_buffer[rowFloats_buffer * i + 27];
+
+            // pix4.y: origin color RGB8
+            texdata_c[4 * (rowFloats * i + 13) + 0] = float_to_byte(ori_r);
+            texdata_c[4 * (rowFloats * i + 13) + 1] = float_to_byte(ori_g);
+            texdata_c[4 * (rowFloats * i + 13) + 2] = float_to_byte(ori_b);
+            texdata_c[4 * (rowFloats * i + 13) + 3] = 255;
+
+            // pix4.z / pix4.w: PBR packed as half floats
+            texdata[rowFloats * i + 14] = packHalf2x16(refl, rough);
+            texdata[rowFloats * i + 15] = packHalf2x16(metal, 0.0);
         }
 
         console.log(">> Worker gen texture:", texwidth, texheight, texdata.byteLength);

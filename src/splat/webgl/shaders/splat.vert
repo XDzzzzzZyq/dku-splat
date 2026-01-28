@@ -12,6 +12,9 @@ in vec3 position;
 out vec4 vColor;
 out vec2 vPosition;
 
+out vec3 vOriColor;
+out vec3 vPbr;
+
 out float scale;
 
 vec4 unpackF32ToRGB8(float v)
@@ -105,4 +108,10 @@ void main()
     vec3 dir = normalize(-pos_view.xyz);
     vec3 rgb = clamp(evalSh1(baseColor, dir, c1, c2, c3), 0.0, 1.0);
     vColor = vec4(rgb, 1.0);
+
+    // New packed attributes (stored in pix4.yzw)
+    vOriColor = unpackF32ToRGB8(pix4.y).rgb;
+    vec2 rr = unpackF32ToHalf2(pix4.z); // refl, roughness
+    vec2 m0 = unpackF32ToHalf2(pix4.w); // metalness, pad
+    vPbr = vec3(rr.x, rr.y, m0.x);
 }  

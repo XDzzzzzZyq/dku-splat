@@ -69,6 +69,13 @@ def _load_ply(filename):
     qw = v["rot_0"]; qx = v["rot_1"]; qy = v["rot_2"]; qz = v["rot_3"]
     rot = quaternion_to_eular(qw, qx, qy, qz)
 
+    refl = expit(v["refl_strength"])
+    roughness = expit(v["roughness"])
+    metalness = expit(v["metalness"])
+    ori_r = expit(v["ori_color_0"])
+    ori_g = expit(v["ori_color_1"])
+    ori_b = expit(v["ori_color_2"])
+
     r = v["f_dc_0"]; g = v["f_dc_1"]; b = v["f_dc_2"]
     sh0 = np.stack([r, g, b], axis=1)
 
@@ -79,6 +86,11 @@ def _load_ply(filename):
 
     X = np.stack([x, y, z, opc, sx, sy, sz], axis=1)
     X = np.concatenate([X, rot, sh0, sh1], axis=1)
+    # Append new channels at the end to keep the original first 22-float layout stable.
+    # Order: refl, roughness, metalness, ori_r, ori_g, ori_b
+    pbr = np.stack([refl, roughness, metalness], axis=1)
+    ori = np.stack([ori_r, ori_g, ori_b], axis=1)
+    X = np.concatenate([X, pbr, ori], axis=1)
     return X.astype(np.float32)
 
 @app.get("/ply")
