@@ -44,32 +44,32 @@ function createWorker(self) {
         return (floatToHalf(x) | (floatToHalf(y) << 16)) >>> 0;
     }
 
-    // Rotation * Scaling
-    // optimzed for s_z = 0
-    function to_RS(s_x, s_y, s_z, r_x, r_y, r_z){
-        // Compute rotation matrix from Euler angles (XYZ order)
-        const cos_x = Math.cos(r_x), sin_x = Math.sin(r_x);
-        const cos_y = Math.cos(r_y), sin_y = Math.sin(r_y);
-        const cos_z = Math.cos(r_z), sin_z = Math.sin(r_z);
+    // Rotation * Scaling (optimized for s_z = 0)
+    // Compute rotation matrix from quaternion (w, x, y, z) and apply sx/sy
+    function to_RS(s_x, s_y, qw, qx, qy, qz){
+        // normalize quaternion
+        const norm = Math.hypot(qw, qx, qy, qz) || 1.0;
+        const w = qw / norm, x = qx / norm, y = qy / norm, z = qz / norm;
 
-        // Rotation matrices
-        const Rx = [1,     0,      0, 
-                    0, cos_x, -sin_x, 
-                    0, sin_x, cos_x];
+        const xx = x * x, yy = y * y, zz = z * z;
+        const xy = x * y, xz = x * z, yz = y * z;
+        const wx = w * x, wy = w * y, wz = w * z;
 
-        const Ry = [ cos_y, 0, sin_y, 
-                    0,      1,     0, 
-                    -sin_y, 0, cos_y];
+        // row-major 3x3 rotation matrix
+        const R0 = 1 - 2 * (yy + zz);
+        const R1 = 2 * (xy - wz);
+        const R2 = 2 * (xz + wy);
 
-        const Rz = [cos_z, -sin_z, 0, 
-                    sin_z,  cos_z, 0, 
-                    0,          0, 1];
+        const R3 = 2 * (xy + wz);
+        const R4 = 1 - 2 * (xx + zz);
+        const R5 = 2 * (yz - wx);
 
-        // R = Rz * Ry * Rx
-        const R = multiply3x3(Rz, multiply3x3(Ry, Rx));
+        const R6 = 2 * (xz - wy);
+        const R7 = 2 * (yz + wx);
+        const R8 = 1 - 2 * (xx + yy);
 
-        // Return upper triangle: x1, y1, x2, y2, x3, y3
-        return [R[0]*s_x, R[1]*s_y, R[3]*s_x, R[4]*s_y, R[6]*s_x, R[7]*s_y];
+        // Return upper-triangle entries scaled by sx/sy (s_z assumed 0)
+        return [R0 * s_x, R1 * s_y, R3 * s_x, R4 * s_y, R6 * s_x, R7 * s_y];
     }
 
     function multiply3x3(A, B) {
@@ -95,7 +95,7 @@ function createWorker(self) {
 
     /*
     Buffer Layout:
-    | pos : vec3(3 * 4) | opacity : float(4) | scl : vec3(3 * 4) | rot : vec3(3 * 4) | color : vec4(4 * 4) |
+    | pos : vec3(3 * 4) | opacity : float(4) | scl : vec2(2 * 4) | rot : quat(4 * 4) | sh0 : vec3 | sh1 : vec9 | pbr : vec3 | ori_color : vec3 |
 
     Data Texture Layout:
     | pos : vec3(3 * 4) | opacity : float(4) | RS : hvec3(3 * 4) | color : rgba(4) |
@@ -134,13 +134,14 @@ function createWorker(self) {
             texdata_f[rowFloats * i + 3] = f_buffer[rowFloats_buffer * i + 3];
 
             // pack RS halves
+            // buffer layout: ... sx, sy, qw, qx, qy, qz, sh0..., sh1...
             const RS = to_RS(
-                f_buffer[rowFloats_buffer * i + 4], 
-                f_buffer[rowFloats_buffer * i + 5], 
-                f_buffer[rowFloats_buffer * i + 6], 
-                f_buffer[rowFloats_buffer * i + 7], 
-                f_buffer[rowFloats_buffer * i + 8], 
-                f_buffer[rowFloats_buffer * i + 9]
+                f_buffer[rowFloats_buffer * i + 4], // sx
+                f_buffer[rowFloats_buffer * i + 5], // sy
+                f_buffer[rowFloats_buffer * i + 6], // qw
+                f_buffer[rowFloats_buffer * i + 7], // qx
+                f_buffer[rowFloats_buffer * i + 8], // qy
+                f_buffer[rowFloats_buffer * i + 9]  // qz
             );
             texdata[rowFloats * i + 4] = packHalf2x16(RS[0], RS[1]);
             texdata[rowFloats * i + 5] = packHalf2x16(RS[2], RS[3]);

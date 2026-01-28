@@ -74,6 +74,10 @@ void main()
     vec3 rs_col0 = RS[0];
     vec3 rs_col1 = RS[1];
     vNormal = normalize(cross(normalize(rs_col0), normalize(rs_col1)));
+    // Ensure normal faces the camera: if it's pointing away, flip it.
+    vec3 viewDir = normalize(-pos_view.xyz);
+    vec3 n_view = normalize(mat3(view) * vNormal);
+    if (dot(n_view, viewDir) < 0.0) vNormal = -vNormal;
     // GLSL fills column-major
     mat3 J = transpose(mat3(
         1. / (r * tan_a * pos_view.z), 0., -(pos_view.x) / (pos_view.z * pos_view.z) / (r * tan_a),

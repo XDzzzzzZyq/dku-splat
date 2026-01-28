@@ -65,9 +65,10 @@ def _load_ply(filename):
     x = v["x"]; y = v["y"]; z = v["z"]
     opc = expit(v["opacity"])
 
-    sx = np.exp(v["scale_0"]); sy = np.exp(v["scale_1"]); sz = np.zeros_like(sx)
+    sx = np.exp(v["scale_0"]); sy = np.exp(v["scale_1"])
     qw = v["rot_0"]; qx = v["rot_1"]; qy = v["rot_2"]; qz = v["rot_3"]
-    rot = quaternion_to_eular(qw, qx, qy, qz)
+    # export quaternion directly (keep normalization for safety)
+    rot = np.stack([qw, qx, qy, qz], axis=1)
 
     refl = expit(v["refl_strength"])
     roughness = expit(v["roughness"])
@@ -84,7 +85,8 @@ def _load_ply(filename):
     r3 = v["f_rest_6"]; g3 = v["f_rest_7"]; b3 = v["f_rest_8"]
     sh1 = np.stack([r1, g1, b1, r2, g2, b2, r3, g3, b3], axis=1)
 
-    X = np.stack([x, y, z, opc, sx, sy, sz], axis=1)
+    # omit sz (z-scale = 0) and export quaternion instead of Euler angles
+    X = np.stack([x, y, z, opc, sx, sy], axis=1)
     X = np.concatenate([X, rot, sh0, sh1], axis=1)
     # Append new channels at the end to keep the original first 22-float layout stable.
     # Order: refl, roughness, metalness, ori_r, ori_g, ori_b
