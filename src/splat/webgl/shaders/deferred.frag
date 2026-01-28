@@ -23,7 +23,7 @@ void main() {
     if (uMode == 0) {
         vec4 p = resolveWeighted(tPos, vUv);
         // Debug visualization for view-space position
-        fragColor = vec4(p.rgb + 0.5, col.a);
+        fragColor = vec4(p.rgb, col.a);
         return;
     }
 

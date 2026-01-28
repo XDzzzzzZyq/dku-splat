@@ -18,6 +18,8 @@ out vec3 vPbr;
 out vec3 vWorldPos;
 
 out vec3 vNormal;
+out vec3 vAxis0;
+out vec3 vAxis1;
 
 out float scale;
 
@@ -51,6 +53,18 @@ vec3 evalSh1(vec3 baseColor, vec3 dir, vec3 c1, vec3 c2, vec3 c3) {
     return baseColor + C1 * (dir.x * c1 + dir.y * c2 + dir.z * c3);
 }
 
+vec2 decompose2D(vec2 v, vec2 u1, vec2 u2) {
+    float det = u1.x * u2.y - u1.y * u2.x;
+    // handle degenerate case
+    if (abs(det) < 1e-6) return vec2(0.0); // or any fallback
+
+    // compute coefficients
+    float a1 = ( u2.y * v.x - u2.x * v.y) / det;
+    float a2 = (-u1.y * v.x + u1.x * v.y) / det;
+
+    return vec2(a1, a2);
+}
+
 void main()
 {
     // load transform
@@ -71,13 +85,16 @@ void main()
 
     mat3 RS = unpackRS(pix1.xyz);
     // Extract first two columns of RS and compute normal (third column is zero)
-    vec3 rs_col0 = RS[0];
-    vec3 rs_col1 = RS[1];
-    vNormal = normalize(cross(normalize(rs_col0), normalize(rs_col1)));
+    vec3 rs_col1 = RS[0];
+    vec3 rs_col2 = RS[1];
+    vNormal = normalize(cross(normalize(rs_col1), normalize(rs_col2)));
     // Ensure normal faces the camera: if it's pointing away, flip it.
     vec3 viewDir = normalize(-pos_view.xyz);
     vec3 n_view = normalize(mat3(view) * vNormal);
-    if (dot(n_view, viewDir) < 0.0) vNormal = -vNormal;
+    if (dot(n_view, viewDir) < 0.0){
+        vNormal = -vNormal;
+        rs_col1 = -rs_col1;
+    }
     // GLSL fills column-major
     mat3 J = transpose(mat3(
         1. / (r * tan_a * pos_view.z), 0., -(pos_view.x) / (pos_view.z * pos_view.z) / (r * tan_a),
@@ -103,6 +120,18 @@ void main()
     scale = 6.0;
     gl_Position = vec4(center + position.x * ax_1 * scale + position.y * ax_2 * scale, 0.0, 1.0);
 
+    // axis correction --------------------------------------------------
+    vec4 pos_1_proj = projection * view * vec4(rs_col1 + pix0.xyz, 1.0);
+    vec2 ax_1_proj = vec2(pos_1_proj) / pos_1_proj.w - center;
+    vec4 pos_2_proj = projection * view * vec4(rs_col2 + pix0.xyz, 1.0);
+    vec2 ax_2_proj = vec2(pos_2_proj) / pos_2_proj.w - center;
+
+    mat2 X = mat2(ax_1_proj, ax_2_proj);
+    mat2 Y = mat2(ax_1, ax_2);
+    mat2 A = inverse(X) * Y;
+    vAxis0 = A[0][0] * rs_col1 + A[1][0] * rs_col2;
+    vAxis1 = A[0][1] * rs_col1 + A[1][1] * rs_col2;
+    // -------------------------------------------------------------------
 
     vPosition = vec2(position);
 

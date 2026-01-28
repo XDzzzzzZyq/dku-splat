@@ -9,6 +9,8 @@ in vec3 vPbr;
 
 in vec3 vWorldPos;
 in vec3 vNormal;
+in vec3 vAxis0;
+in vec3 vAxis1;
 
 #ifdef DEFERRED_GBUFFER
 layout(location = 0) out vec4 gColor;
@@ -30,7 +32,9 @@ void main () {
 #ifdef DEFERRED_GBUFFER
     // Weighted blended accumulation (order-independent): store sum(value * w) and sum(w).
     gColor = vec4(vColor.rgb, w);
-    gPos   = vec4(vWorldPos, w);
+    // compute per-fragment sprite world position using RS axes and quad coords
+    vec3 spriteWorldPos = vWorldPos + vAxis0 * vPosition.x * scale + vAxis1 * vPosition.y * scale;
+    gPos   = vec4(spriteWorldPos, w);
     gPbr   = vec4(vPbr, w);
     // encode normal into 0..1 range and store weight in alpha
     gNormal = vec4(vNormal, w);

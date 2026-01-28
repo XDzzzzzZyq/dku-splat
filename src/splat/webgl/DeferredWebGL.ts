@@ -8,7 +8,7 @@ export class DeferredWebGL {
   resolveScene: THREE.Scene | null = null
   resolveCamera: THREE.OrthographicCamera | null = null
   resolveMesh: THREE.Mesh | null = null
-  deferredMode = 3
+  deferredMode = 0
   data_texture: THREE.DataTexture | null = null
   idx_buffer: THREE.DataTexture | null = null
 
