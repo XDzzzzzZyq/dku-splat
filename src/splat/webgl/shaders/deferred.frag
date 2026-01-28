@@ -19,20 +19,20 @@ vec4 resolveWeighted(sampler2D tex, vec2 uv) {
 void main() {
     vec4 col = resolveWeighted(tColor, vUv);
 
-    if (uMode == 1) {
+    if (uMode == 0) {
         vec4 p = resolveWeighted(tPos, vUv);
         // Debug visualization for view-space position
         fragColor = vec4(p.rgb + 0.5, col.a);
         return;
     }
 
-    if (uMode == 2) {
+    if (uMode == 1) {
         vec4 m = resolveWeighted(tPbr, vUv);
         fragColor = vec4(m.rgb, col.a);
         return;
     }
 
-    if (uMode == 3) {
+    if (uMode == 2) {
         fragColor = col;
         return;
     }

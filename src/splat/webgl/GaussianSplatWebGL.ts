@@ -3,17 +3,13 @@ import vert from './shaders/splat.vert?raw'
 import frag from './shaders/splat.frag?raw'
 import deferredVert from './shaders/deferred.vert?raw'
 import deferredFrag from './shaders/deferred.frag?raw'
+import { DeferredWebGL } from './DeferredWebGL'
 import { CONFIG } from "../../config.js";
 
 export class GaussianSplatWebGL {
   mesh: THREE.Mesh
   forwardMaterial: THREE.RawShaderMaterial
-  gbufferMaterial: THREE.RawShaderMaterial | null = null
-  gbufferTarget: THREE.WebGLMultipleRenderTargets | null = null
-  resolveScene: THREE.Scene | null = null
-  resolveCamera: THREE.OrthographicCamera | null = null
-  resolveMesh: THREE.Mesh | null = null
-  deferredMode = 3
+  deferred: DeferredWebGL | null = null
   worker: Worker | null = null
   data_texture: THREE.DataTexture | null = null
   idx_buffer: THREE.DataTexture | null = null
@@ -98,7 +94,7 @@ export class GaussianSplatWebGL {
     tex.generateMipmaps = false
     this.data_texture = tex
     this.forwardMaterial.uniforms.u_data.value = tex
-    if (this.gbufferMaterial) this.gbufferMaterial.uniforms.u_data.value = tex
+    if (this.deferred) this.deferred.setDataTexture(tex)
   }
 
   handleDepthIndex(depthIndex: Uint32Array, vertexCount: number) {
@@ -116,7 +112,7 @@ export class GaussianSplatWebGL {
     texture.wrapT = THREE.ClampToEdgeWrapping
     texture.generateMipmaps = false
     this.forwardMaterial.uniforms.idx_buffer.value = texture
-    if (this.gbufferMaterial) this.gbufferMaterial.uniforms.idx_buffer.value = texture
+    if (this.deferred) this.deferred.setIdxBuffer(texture)
 
     const geom = this.mesh.geometry as THREE.InstancedBufferGeometry
     geom.instanceCount = vertexCount
@@ -133,11 +129,7 @@ export class GaussianSplatWebGL {
     this.forwardMaterial.uniforms.view.value.fromArray(viewMatrix)
     this.forwardMaterial.uniforms.projection.value.fromArray(projectionMatrix)
     this.forwardMaterial.uniforms.focal.value.set(fx, fy, fz)
-    if (this.gbufferMaterial) {
-      this.gbufferMaterial.uniforms.view.value.fromArray(viewMatrix)
-      this.gbufferMaterial.uniforms.projection.value.fromArray(projectionMatrix)
-      this.gbufferMaterial.uniforms.focal.value.set(fx, fy, fz)
-    }
+    if (this.deferred) this.deferred.updateUniforms(viewMatrix, projectionMatrix, fx, fy, fz)
     if (!this.worker) return
     this.worker.postMessage({ view: viewMatrix })
   }
@@ -148,134 +140,25 @@ export class GaussianSplatWebGL {
       return
     }
 
-    if (!this.gbufferMaterial) {
-      const mat = this.forwardMaterial.clone() as THREE.RawShaderMaterial
-      mat.defines = { ...(mat.defines ?? {}), DEFERRED_GBUFFER: 1 }
-      // We accumulate (value, w) into the G-buffer with normal blending.
-      mat.transparent = true
-      mat.depthWrite = false
-      mat.blending = THREE.NormalBlending
-      this.gbufferMaterial = mat
-
-      // Keep data/idx buffers in sync if they were already created
-      if (this.data_texture) mat.uniforms.u_data.value = this.data_texture
-      if (this.idx_buffer) mat.uniforms.idx_buffer.value = this.idx_buffer
+    if (!this.deferred) {
+      this.deferred = new DeferredWebGL(this.mesh, this.forwardMaterial)
+      if (this.data_texture) this.deferred.setDataTexture(this.data_texture)
+      if (this.idx_buffer) this.deferred.setIdxBuffer(this.idx_buffer)
     }
 
-    const size = new THREE.Vector2()
-    renderer.getDrawingBufferSize(size)
-    this.resizeDeferred(renderer, size.x, size.y)
-
-    if (!this.resolveScene) {
-      const quad = new Float32Array([
-        -1, -1, 0,
-         1, -1, 0,
-         1,  1, 0,
-        -1,  1, 0,
-      ])
-      const geometry = new THREE.BufferGeometry()
-      geometry.setAttribute('position', new THREE.BufferAttribute(quad, 3))
-      geometry.setIndex([0, 1, 2, 2, 3, 0])
-
-      const resolveMat = new THREE.RawShaderMaterial({
-        glslVersion: THREE.GLSL3,
-        depthTest: false,
-        depthWrite: false,
-        transparent: false,
-        vertexShader: deferredVert,
-        fragmentShader: deferredFrag,
-        uniforms: {
-          tColor: { value: null },
-          tPos: { value: null },
-          tPbr: { value: null },
-          uMode: { value: this.deferredMode },
-        },
-      })
-
-      this.resolveMesh = new THREE.Mesh(geometry, resolveMat)
-      this.resolveScene = new THREE.Scene()
-      this.resolveScene.add(this.resolveMesh)
-      this.resolveCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
-
-      // Wire current MRT textures if already allocated
-      if (this.gbufferTarget) {
-        resolveMat.uniforms.tColor.value = this.gbufferTarget.texture[0]
-        resolveMat.uniforms.tPos.value = this.gbufferTarget.texture[1]
-        resolveMat.uniforms.tPbr.value = this.gbufferTarget.texture[2]
-      }
-    }
+    this.deferred.init(renderer)
   }
 
   resizeDeferred(renderer: THREE.WebGLRenderer, width?: number, height?: number) {
-    if (!(renderer.capabilities as any).isWebGL2) return
-
-    const size = new THREE.Vector2(width ?? 0, height ?? 0)
-    if (!width || !height) renderer.getDrawingBufferSize(size)
-
-    if (this.gbufferTarget && this.gbufferTarget.width === size.x && this.gbufferTarget.height === size.y) {
-      return
-    }
-
-    const mrt = new THREE.WebGLMultipleRenderTargets(size.x, size.y, 3)
-    mrt.texture[0].name = 'gColor'
-    mrt.texture[1].name = 'gPos'
-    mrt.texture[2].name = 'gPbr'
-
-    for (const tex of mrt.texture) {
-      tex.type = THREE.HalfFloatType
-      tex.format = THREE.RGBAFormat
-      tex.minFilter = THREE.NearestFilter
-      tex.magFilter = THREE.NearestFilter
-      tex.generateMipmaps = false
-    }
-
-    mrt.depthBuffer = false
-    this.gbufferTarget = mrt
-
-    const resolveMat = this.resolveMesh?.material as THREE.RawShaderMaterial | undefined
-    if (resolveMat) {
-      resolveMat.uniforms.tColor.value = mrt.texture[0]
-      resolveMat.uniforms.tPos.value = mrt.texture[1]
-      resolveMat.uniforms.tPbr.value = mrt.texture[2]
-    }
+    if (this.deferred) this.deferred.resize(renderer, width, height)
   }
 
-  setDeferredMode(mode: number) {
-    this.deferredMode = mode
-    const resolveMat = this.resolveMesh?.material as THREE.RawShaderMaterial | null
-    if (resolveMat) resolveMat.uniforms.uMode.value = mode
+  setDeferredMode() {
+    if (this.deferred) this.deferred.setDeferredMode()
   }
 
   renderDeferred(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
-    if (!this.gbufferTarget || !this.resolveScene || !this.resolveCamera || !this.gbufferMaterial) return
-
-    // Resize to current drawing buffer if needed
-    const size = new THREE.Vector2()
-    renderer.getDrawingBufferSize(size)
-    if (this.gbufferTarget.width !== size.x || this.gbufferTarget.height !== size.y) {
-      this.resizeDeferred(renderer, size.x, size.y)
-      if (!this.gbufferTarget) return
-    }
-
-    const prevTarget = renderer.getRenderTarget()
-    const prevClear = new THREE.Color()
-    renderer.getClearColor(prevClear)
-    const prevClearAlpha = renderer.getClearAlpha()
-
-    // Accum buffers must start at 0.
-    renderer.setClearColor(0x000000, 0)
-
-    const prevMaterial = this.mesh.material
-    this.mesh.material = this.gbufferMaterial
-    renderer.setRenderTarget(this.gbufferTarget)
-    renderer.clear(true, false, false)
-    renderer.render(scene, camera)
-    this.mesh.material = prevMaterial
-
-    renderer.setRenderTarget(null)
-    renderer.setClearColor(prevClear, prevClearAlpha)
-    renderer.render(this.resolveScene, this.resolveCamera)
-    renderer.setRenderTarget(prevTarget)
+    if (this.deferred) this.deferred.render(renderer, scene, camera)
   }
 
   toggleVisible() {

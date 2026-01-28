@@ -49,12 +49,19 @@ try {
 // TODO: Float Buffer <-> Texture Buffer abstraction
 splat.setBuffer(buf, demoVertexCount)
 
-const button = new Button3D()
-button.position.set(0.6, 0.4, -0.5)
-button.userData.onClick = () => {
+const vis_button = new Button3D()
+vis_button.position.set(1.0, 0.4, -0.5)
+vis_button.userData.onClick = () => {
   splat.toggleVisible()
 }
-scene.add(button)
+scene.add(vis_button)
+
+const mod_button = new Button3D()
+mod_button.position.set(1.0, 0.2, -0.5)
+mod_button.userData.onClick = () => {
+  splat.setDeferredMode()
+}
+scene.add(mod_button)
 
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
