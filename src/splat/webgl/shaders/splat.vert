@@ -34,7 +34,7 @@ vec2 unpackF32ToHalf2(float raw){
     return unpackHalf2x16(floatBitsToUint(raw));
 }
 
-mat3 unpackRT(vec3 v)
+mat3 unpackRS(vec3 v)
 {
     vec2 u1 = unpackF32ToHalf2(v.x), u2 = unpackF32ToHalf2(v.y), u3 = unpackF32ToHalf2(v.z);
     // unpack upper triangle: xx, xy, xz, yy, yz, zz
@@ -67,7 +67,7 @@ void main()
     float tan_a = focal.y / focal.z;
     float r = focal.x / focal.y;
 
-    mat3 RT = unpackRT(pix1.xyz);
+    mat3 RS = unpackRS(pix1.xyz);
     // GLSL fills column-major
     mat3 J = transpose(mat3(
         1. / (r * tan_a * pos_view.z), 0., -(pos_view.x) / (pos_view.z * pos_view.z) / (r * tan_a),
@@ -76,7 +76,7 @@ void main()
     ));
 
     mat3 T = J * mat3(view);
-    mat3 cov = RT * transpose(RT);
+    mat3 cov = RS * transpose(RS);
     mat2 cov_scr = mat2(T * cov * transpose(T));
 
     // Eigen decomposition
