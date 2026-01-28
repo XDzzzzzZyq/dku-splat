@@ -22,21 +22,21 @@ const splatScene = new THREE.Scene()
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.6))
 
-let splat: any
+let splat_renderer: any
 if (render_capabilities === 'WebGPU') {
   const mod = await import('./splat/webgpu/GaussianSplatWebGPU')
-  splat = new mod.GaussianSplatWebGPU()
+  splat_renderer = new mod.GaussianSplatWebGPU()
 } else {
   const mod = await import('./splat/webgl/GaussianRendererWebGL')
-  splat = new mod.GaussianRendererWebGL()
+  splat_renderer = new mod.GaussianRendererWebGL()
 }
 // Put splats in their own scene (so we can render them into the G-buffer)
-splatScene.add(splat.mesh)
+splatScene.add(splat_renderer.mesh)
 
 // Initialize deferred pipeline for WebGL renderer
 try {
-  if ((renderer as any).isWebGLRenderer && typeof (splat as any).initDeferred === 'function') {
-    ;(splat as any).initDeferred(renderer)
+  if ((renderer as any).isWebGLRenderer && typeof (splat_renderer as any).initDeferred === 'function') {
+    ;(splat_renderer as any).initDeferred(renderer)
   }
 } catch (err) {
   console.warn('Deferred init failed:', err)
@@ -47,19 +47,19 @@ try {
 | pos : vec3(3 * 4) | opacity : float(4) | scl : vec3(3 * 4) | rot : vec3(3 * 4) | color : rgba(4) |
 */
 // TODO: Float Buffer <-> Texture Buffer abstraction
-splat.setBuffer(buf, demoVertexCount)
+splat_renderer.setBuffer(buf, demoVertexCount)
 
 const vis_button = new Button3D()
 vis_button.position.set(1.0, 0.4, -0.5)
 vis_button.userData.onClick = () => {
-  splat.toggleVisible()
+  splat_renderer.toggleVisible()
 }
 scene.add(vis_button)
 
 const mod_button = new Button3D()
 mod_button.position.set(1.0, 0.2, -0.5)
 mod_button.userData.onClick = () => {
-  splat.setDeferredMode()
+  splat_renderer.setDeferredMode()
 }
 scene.add(mod_button)
 
@@ -85,7 +85,7 @@ window.addEventListener('resize', () => {
     renderer.setPixelRatio(window.devicePixelRatio);
 
     try {
-      ;(splat as any).resizeDeferred?.(renderer)
+      ;(splat_renderer as any).resizeDeferred?.(renderer)
     } catch {
       // ignore
     }
@@ -97,7 +97,7 @@ function animate() {
   // update splat shader uniforms with current camera
   // three.js camera matrices
   try {
-    splat.updateUniforms(
+    splat_renderer.updateUniforms(
       camera.matrixWorldInverse.elements as unknown as Float32Array, 
       camera.projectionMatrix.elements as unknown as Float32Array, 
       camera.aspect, 1.0, 1.0) // TODO: adjustbale focal length
@@ -105,8 +105,8 @@ function animate() {
     // ignore if method missing
   }
   // Deferred splat render (G-buffer -> resolve) when available
-  if ((renderer as any).isWebGLRenderer && typeof (splat as any).renderDeferred === 'function') {
-    ;(splat as any).renderDeferred(renderer, splatScene, camera)
+  if ((renderer as any).isWebGLRenderer && typeof (splat_renderer as any).renderDeferred === 'function') {
+    ;(splat_renderer as any).renderDeferred(renderer, splatScene, camera)
     // Render the rest of the scene on top (no clear)
     const prevAutoClear = (renderer as any).autoClear
     ;(renderer as any).autoClear = false
@@ -115,7 +115,7 @@ function animate() {
   } else {
     renderer.render(scene, camera)
   }
-  splat.renderOverlay?.()
+  splat_renderer.renderOverlay?.()
   const gl = renderer.getContext?.()
   if (gl && 'getError' in gl) {
     const err = (gl as WebGL2RenderingContext).getError();

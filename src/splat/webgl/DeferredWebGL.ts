@@ -124,13 +124,8 @@ export class DeferredWebGL {
   render(
     renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
-    camera: THREE.Camera,
+    camera: THREE.PerspectiveCamera,
     gbufferMaterial: THREE.RawShaderMaterial | null,
-    viewMatrix?: Float32Array,
-    projectionMatrix?: Float32Array,
-    fx?: number,
-    fy?: number,
-    fz?: number
   ) {
     if (!this.gbufferTarget || !this.resolveScene || !this.resolveCamera || !gbufferMaterial) return
 
@@ -143,11 +138,16 @@ export class DeferredWebGL {
 
     // Wire stored textures/uniforms into the provided gbuffer material.
     if (gbufferMaterial.uniforms) {
+      
+      const viewMatrix = camera.matrixWorldInverse.elements as unknown as Float32Array
+      const projectionMatrix = camera.projectionMatrix.elements as unknown as Float32Array
+      const fx = camera.aspect
+
       if (this.data_texture && 'u_data' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.u_data.value = this.data_texture
       if (this.idx_buffer && 'idx_buffer' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.idx_buffer.value = this.idx_buffer
       if (viewMatrix && 'view' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.view.value.fromArray(viewMatrix)
       if (projectionMatrix && 'projection' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.projection.value.fromArray(projectionMatrix)
-      if (typeof fx === 'number' && 'focal' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.focal.value.set(fx, fy || fx, fz || fx)
+      if (typeof fx === 'number' && 'focal' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.focal.value.set(fx, 1.0, 1.0)
     }
 
     const prevTarget = renderer.getRenderTarget()
