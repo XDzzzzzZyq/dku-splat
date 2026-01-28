@@ -8,11 +8,13 @@ in vec3 vOriColor;
 in vec3 vPbr;
 
 in vec3 vWorldPos;
+in vec3 vNormal;
 
 #ifdef DEFERRED_GBUFFER
 layout(location = 0) out vec4 gColor;
 layout(location = 1) out vec4 gPos;
 layout(location = 2) out vec4 gPbr;
+layout(location = 3) out vec4 gNormal;
 #else
 out vec4 fragColor;
 #endif
@@ -30,6 +32,8 @@ void main () {
     gColor = vec4(vColor.rgb, w);
     gPos   = vec4(vWorldPos, w);
     gPbr   = vec4(vPbr, w);
+    // encode normal into 0..1 range and store weight in alpha
+    gNormal = vec4(vNormal, w);
 #else
     fragColor = vec4(vColor.rgb, w);
 #endif

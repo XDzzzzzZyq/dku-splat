@@ -8,7 +8,7 @@ export class DeferredWebGL {
   resolveScene: THREE.Scene | null = null
   resolveCamera: THREE.OrthographicCamera | null = null
   resolveMesh: THREE.Mesh | null = null
-  deferredMode = 0
+  deferredMode = 3
   data_texture: THREE.DataTexture | null = null
   idx_buffer: THREE.DataTexture | null = null
 
@@ -50,6 +50,7 @@ export class DeferredWebGL {
           tColor: { value: null },
           tPos: { value: null },
           tPbr: { value: null },
+          tNormal: { value: null },
           uMode: { value: this.deferredMode },
         },
       })
@@ -63,6 +64,7 @@ export class DeferredWebGL {
         resolveMat.uniforms.tColor.value = this.gbufferTarget.texture[0]
         resolveMat.uniforms.tPos.value = this.gbufferTarget.texture[1]
         resolveMat.uniforms.tPbr.value = this.gbufferTarget.texture[2]
+        if (this.gbufferTarget.texture[3]) resolveMat.uniforms.tNormal.value = this.gbufferTarget.texture[3]
       }
     }
   }
@@ -77,12 +79,14 @@ export class DeferredWebGL {
       return
     }
 
-    const mrt = new THREE.WebGLMultipleRenderTargets(size.x, size.y, 3)
-    mrt.texture[0].name = 'gColor'
-    mrt.texture[1].name = 'gPos'
-    mrt.texture[2].name = 'gPbr'
+    // create 4 MRT attachments: color, pos, pbr, normal
+    const mrt4 = new THREE.WebGLMultipleRenderTargets(size.x, size.y, 4)
+    mrt4.texture[0].name = 'gColor'
+    mrt4.texture[1].name = 'gPos'
+    mrt4.texture[2].name = 'gPbr'
+    mrt4.texture[3].name = 'gNormal'
 
-    for (const tex of mrt.texture) {
+    for (const tex of mrt4.texture) {
       tex.type = THREE.HalfFloatType
       tex.format = THREE.RGBAFormat
       tex.minFilter = THREE.NearestFilter
@@ -90,19 +94,20 @@ export class DeferredWebGL {
       tex.generateMipmaps = false
     }
 
-    mrt.depthBuffer = false
-    this.gbufferTarget = mrt
+    mrt4.depthBuffer = false
+    this.gbufferTarget = mrt4
 
     const resolveMat = this.resolveMesh?.material as THREE.RawShaderMaterial | undefined
     if (resolveMat) {
-      resolveMat.uniforms.tColor.value = mrt.texture[0]
-      resolveMat.uniforms.tPos.value = mrt.texture[1]
-      resolveMat.uniforms.tPbr.value = mrt.texture[2]
+      resolveMat.uniforms.tColor.value = mrt4.texture[0]
+      resolveMat.uniforms.tPos.value = mrt4.texture[1]
+      resolveMat.uniforms.tPbr.value = mrt4.texture[2]
+      resolveMat.uniforms.tNormal.value = mrt4.texture[3]
     }
   }
 
   setDeferredMode() {
-    this.deferredMode = (this.deferredMode + 1) % 3
+    this.deferredMode = (this.deferredMode + 1) % 4
     const resolveMat = this.resolveMesh?.material as THREE.RawShaderMaterial | null
     if (resolveMat) resolveMat.uniforms.uMode.value = this.deferredMode
   }

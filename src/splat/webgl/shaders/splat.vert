@@ -17,6 +17,8 @@ out vec3 vPbr;
 
 out vec3 vWorldPos;
 
+out vec3 vNormal;
+
 out float scale;
 
 vec4 unpackF32ToRGB8(float v)
@@ -68,6 +70,10 @@ void main()
     float r = focal.x / focal.y;
 
     mat3 RS = unpackRS(pix1.xyz);
+    // Extract first two columns of RS and compute normal (third column is zero)
+    vec3 rs_col0 = RS[0];
+    vec3 rs_col1 = RS[1];
+    vNormal = normalize(cross(normalize(rs_col0), normalize(rs_col1)));
     // GLSL fills column-major
     mat3 J = transpose(mat3(
         1. / (r * tan_a * pos_view.z), 0., -(pos_view.x) / (pos_view.z * pos_view.z) / (r * tan_a),

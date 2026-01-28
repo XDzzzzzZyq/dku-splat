@@ -3,6 +3,7 @@ precision highp float;
 uniform sampler2D tColor;
 uniform sampler2D tPos;
 uniform sampler2D tPbr;
+uniform sampler2D tNormal;
 uniform int uMode;
 
 in vec2 vUv;
@@ -34,6 +35,12 @@ void main() {
 
     if (uMode == 2) {
         fragColor = col;
+        return;
+    }
+
+    if (uMode == 3) {
+        vec4 n = resolveWeighted(tNormal, vUv);
+        fragColor = vec4(n.rgb, col.a);
         return;
     }
 
