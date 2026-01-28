@@ -27,8 +27,8 @@ if (render_capabilities === 'WebGPU') {
   const mod = await import('./splat/webgpu/GaussianSplatWebGPU')
   splat = new mod.GaussianSplatWebGPU()
 } else {
-  const mod = await import('./splat/webgl/GaussianSplatWebGL')
-  splat = new mod.GaussianSplatWebGL()
+  const mod = await import('./splat/webgl/GaussianRendererWebGL')
+  splat = new mod.GaussianRendererWebGL()
 }
 // Put splats in their own scene (so we can render them into the G-buffer)
 splatScene.add(splat.mesh)

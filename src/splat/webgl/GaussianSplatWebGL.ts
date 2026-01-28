@@ -1,15 +1,12 @@
 import * as THREE from 'three'
 import vert from './shaders/splat.vert?raw'
 import frag from './shaders/splat.frag?raw'
-import deferredVert from './shaders/deferred.vert?raw'
-import deferredFrag from './shaders/deferred.frag?raw'
-import { DeferredWebGL } from './DeferredWebGL'
+// pure forward splat (deferred is handled separately)
 import { CONFIG } from "../../config.js";
 
 export class GaussianSplatWebGL {
   mesh: THREE.Mesh
   forwardMaterial: THREE.RawShaderMaterial
-  deferred: DeferredWebGL | null = null
   worker: Worker | null = null
   data_texture: THREE.DataTexture | null = null
   idx_buffer: THREE.DataTexture | null = null
@@ -94,7 +91,6 @@ export class GaussianSplatWebGL {
     tex.generateMipmaps = false
     this.data_texture = tex
     this.forwardMaterial.uniforms.u_data.value = tex
-    if (this.deferred) this.deferred.setDataTexture(tex)
   }
 
   handleDepthIndex(depthIndex: Uint32Array, vertexCount: number) {
@@ -112,7 +108,6 @@ export class GaussianSplatWebGL {
     texture.wrapT = THREE.ClampToEdgeWrapping
     texture.generateMipmaps = false
     this.forwardMaterial.uniforms.idx_buffer.value = texture
-    if (this.deferred) this.deferred.setIdxBuffer(texture)
 
     const geom = this.mesh.geometry as THREE.InstancedBufferGeometry
     geom.instanceCount = vertexCount
@@ -129,37 +124,23 @@ export class GaussianSplatWebGL {
     this.forwardMaterial.uniforms.view.value.fromArray(viewMatrix)
     this.forwardMaterial.uniforms.projection.value.fromArray(projectionMatrix)
     this.forwardMaterial.uniforms.focal.value.set(fx, fy, fz)
-    if (this.deferred) this.deferred.updateUniforms(viewMatrix, projectionMatrix, fx, fy, fz)
+    // forward-only: update forward material uniforms
     if (!this.worker) return
     this.worker.postMessage({ view: viewMatrix })
   }
 
-  initDeferred(renderer: THREE.WebGLRenderer) {
-    if (!(renderer.capabilities as any).isWebGL2) {
-      console.warn('Deferred G-buffer requires WebGL2 (MRT). Falling back to forward splat.')
-      return
-    }
-
-    if (!this.deferred) {
-      this.deferred = new DeferredWebGL(this.mesh, this.forwardMaterial)
-      if (this.data_texture) this.deferred.setDataTexture(this.data_texture)
-      if (this.idx_buffer) this.deferred.setIdxBuffer(this.idx_buffer)
-    }
-
-    this.deferred.init(renderer)
+  createGBufferMaterial(): THREE.RawShaderMaterial {
+    const mat = this.forwardMaterial.clone() as THREE.RawShaderMaterial
+    mat.defines = { ...(mat.defines ?? {}), DEFERRED_GBUFFER: 1 }
+    mat.transparent = true
+    mat.depthWrite = false
+    mat.blending = THREE.NormalBlending
+    if (this.data_texture) mat.uniforms.u_data.value = this.data_texture
+    if (this.idx_buffer) mat.uniforms.idx_buffer.value = this.idx_buffer
+    return mat
   }
 
-  resizeDeferred(renderer: THREE.WebGLRenderer, width?: number, height?: number) {
-    if (this.deferred) this.deferred.resize(renderer, width, height)
-  }
-
-  setDeferredMode() {
-    if (this.deferred) this.deferred.setDeferredMode()
-  }
-
-  renderDeferred(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
-    if (this.deferred) this.deferred.render(renderer, scene, camera)
-  }
+  // Deferred / render pipeline is managed by GaussianRendererWebGL
 
   toggleVisible() {
     this.mesh.visible = !this.mesh.visible

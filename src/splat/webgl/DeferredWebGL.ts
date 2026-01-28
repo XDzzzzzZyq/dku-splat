@@ -3,8 +3,6 @@ import deferredVert from './shaders/deferred.vert?raw'
 import deferredFrag from './shaders/deferred.frag?raw'
 
 export class DeferredWebGL {
-  mesh: THREE.Mesh
-  forwardMaterial: THREE.RawShaderMaterial
   gbufferMaterial: THREE.RawShaderMaterial | null = null
   gbufferTarget: THREE.WebGLMultipleRenderTargets | null = null
   resolveScene: THREE.Scene | null = null
@@ -14,27 +12,16 @@ export class DeferredWebGL {
   data_texture: THREE.DataTexture | null = null
   idx_buffer: THREE.DataTexture | null = null
 
-  constructor(mesh: THREE.Mesh, forwardMaterial: THREE.RawShaderMaterial) {
-    this.mesh = mesh
-    this.forwardMaterial = forwardMaterial
+  constructor() {
+    // DeferredWebGL does not own or compile splat materials; it only manages
+    // the MRT targets and the resolve pass. Materials are provided at render
+    // time by GaussianSplatWebGL (the splat implementation).
   }
 
   init(renderer: THREE.WebGLRenderer) {
     if (!(renderer.capabilities as any).isWebGL2) {
       console.warn('Deferred G-buffer requires WebGL2 (MRT). Falling back to forward splat.')
       return
-    }
-
-    if (!this.gbufferMaterial) {
-      const mat = this.forwardMaterial.clone() as THREE.RawShaderMaterial
-      mat.defines = { ...(mat.defines ?? {}), DEFERRED_GBUFFER: 1 }
-      mat.transparent = true
-      mat.depthWrite = false
-      mat.blending = THREE.NormalBlending
-      this.gbufferMaterial = mat
-
-      if (this.data_texture) mat.uniforms.u_data.value = this.data_texture
-      if (this.idx_buffer) mat.uniforms.idx_buffer.value = this.idx_buffer
     }
 
     const size = new THREE.Vector2()
@@ -122,29 +109,45 @@ export class DeferredWebGL {
 
   setDataTexture(tex: THREE.DataTexture | null) {
     this.data_texture = tex
-    if (this.gbufferMaterial) this.gbufferMaterial.uniforms.u_data.value = tex
+    // Deferred does not modify materials directly; the splat material will
+    // be created/updated by GaussianSplatWebGL and provided at render time.
   }
 
   setIdxBuffer(tex: THREE.DataTexture | null) {
     this.idx_buffer = tex
-    if (this.gbufferMaterial) this.gbufferMaterial.uniforms.idx_buffer.value = tex
+    // stored for wiring into the provided gbuffer material during render
   }
 
-  updateUniforms(viewMatrix: Float32Array, projectionMatrix: Float32Array, fx: number, fy: number, fz: number) {
-    if (!this.gbufferMaterial) return
-    this.gbufferMaterial.uniforms.view.value.fromArray(viewMatrix)
-    this.gbufferMaterial.uniforms.projection.value.fromArray(projectionMatrix)
-    this.gbufferMaterial.uniforms.focal.value.set(fx, fy, fz)
-  }
+  // Deferred does not keep material uniforms; these are applied to the
+  // material provided at render time. We keep no matrix state here.
 
-  render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
-    if (!this.gbufferTarget || !this.resolveScene || !this.resolveCamera || !this.gbufferMaterial) return
+  render(
+    renderer: THREE.WebGLRenderer,
+    scene: THREE.Scene,
+    camera: THREE.Camera,
+    gbufferMaterial: THREE.RawShaderMaterial | null,
+    viewMatrix?: Float32Array,
+    projectionMatrix?: Float32Array,
+    fx?: number,
+    fy?: number,
+    fz?: number
+  ) {
+    if (!this.gbufferTarget || !this.resolveScene || !this.resolveCamera || !gbufferMaterial) return
 
     const size = new THREE.Vector2()
     renderer.getDrawingBufferSize(size)
     if (this.gbufferTarget.width !== size.x || this.gbufferTarget.height !== size.y) {
       this.resize(renderer, size.x, size.y)
       if (!this.gbufferTarget) return
+    }
+
+    // Wire stored textures/uniforms into the provided gbuffer material.
+    if (gbufferMaterial.uniforms) {
+      if (this.data_texture && 'u_data' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.u_data.value = this.data_texture
+      if (this.idx_buffer && 'idx_buffer' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.idx_buffer.value = this.idx_buffer
+      if (viewMatrix && 'view' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.view.value.fromArray(viewMatrix)
+      if (projectionMatrix && 'projection' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.projection.value.fromArray(projectionMatrix)
+      if (typeof fx === 'number' && 'focal' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.focal.value.set(fx, fy || fx, fz || fx)
     }
 
     const prevTarget = renderer.getRenderTarget()
@@ -154,12 +157,20 @@ export class DeferredWebGL {
 
     renderer.setClearColor(0x000000, 0)
 
-    const prevMaterial = this.mesh.material
-    this.mesh.material = this.gbufferMaterial
-    renderer.setRenderTarget(this.gbufferTarget)
-    renderer.clear(true, false, false)
-    renderer.render(scene, camera)
-    this.mesh.material = prevMaterial
+    // Render into MRT using the supplied material
+    const firstMesh = (scene.children.find((c: any) => c.isMesh) as any) || null
+    if (firstMesh) {
+      const orig = firstMesh.material
+      firstMesh.material = gbufferMaterial
+      renderer.setRenderTarget(this.gbufferTarget)
+      renderer.clear(true, false, false)
+      renderer.render(scene, camera)
+      firstMesh.material = orig
+    } else {
+      renderer.setRenderTarget(this.gbufferTarget)
+      renderer.clear(true, false, false)
+      renderer.render(scene, camera)
+    }
 
     renderer.setRenderTarget(null)
     renderer.setClearColor(prevClear, prevClearAlpha)
