@@ -15,6 +15,8 @@ out vec2 vPosition;
 out vec3 vOriColor;
 out vec3 vPbr;
 
+out vec3 vWorldPos;
+
 out float scale;
 
 vec4 unpackF32ToRGB8(float v)
@@ -60,6 +62,8 @@ void main()
 
     vec4 pos_view = view * vec4(pix0.xyz, 1.0); // relative position to camera
     vec4 pos_proj = projection * pos_view;
+
+    vWorldPos = pix0.xyz;
     float tan_a = focal.y / focal.z;
     float r = focal.x / focal.y;
 

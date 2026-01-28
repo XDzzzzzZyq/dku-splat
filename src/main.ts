@@ -17,6 +17,9 @@ console.log("Max Vertex Texture:", (renderer as any).capabilities?.maxVertexText
 
 const scene = new THREE.Scene()
 
+// Separate scene for splat G-buffer pass (deferred pipeline)
+const splatScene = new THREE.Scene()
+
 scene.add(new THREE.AmbientLight(0xffffff, 0.6))
 
 let splat: any
@@ -27,7 +30,17 @@ if (render_capabilities === 'WebGPU') {
   const mod = await import('./splat/webgl/GaussianSplatWebGL')
   splat = new mod.GaussianSplatWebGL()
 }
-scene.add(splat.mesh)
+// Put splats in their own scene (so we can render them into the G-buffer)
+splatScene.add(splat.mesh)
+
+// Initialize deferred pipeline for WebGL renderer
+try {
+  if ((renderer as any).isWebGLRenderer && typeof (splat as any).initDeferred === 'function') {
+    ;(splat as any).initDeferred(renderer)
+  }
+} catch (err) {
+  console.warn('Deferred init failed:', err)
+}
 
 // Create a small demo buffer (splat-style rows: 32 bytes per vertex)
 /*
@@ -63,6 +76,12 @@ window.addEventListener('resize', () => {
 
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
+
+    try {
+      ;(splat as any).resizeDeferred?.(renderer)
+    } catch {
+      // ignore
+    }
 });
 
 function animate() {
@@ -78,7 +97,17 @@ function animate() {
   } catch (err) {
     // ignore if method missing
   }
-  renderer.render(scene, camera)
+  // Deferred splat render (G-buffer -> resolve) when available
+  if ((renderer as any).isWebGLRenderer && typeof (splat as any).renderDeferred === 'function') {
+    ;(splat as any).renderDeferred(renderer, splatScene, camera)
+    // Render the rest of the scene on top (no clear)
+    const prevAutoClear = (renderer as any).autoClear
+    ;(renderer as any).autoClear = false
+    renderer.render(scene, camera)
+    ;(renderer as any).autoClear = prevAutoClear
+  } else {
+    renderer.render(scene, camera)
+  }
   splat.renderOverlay?.()
   const gl = renderer.getContext?.()
   if (gl && 'getError' in gl) {
