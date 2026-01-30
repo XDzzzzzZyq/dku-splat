@@ -2,7 +2,7 @@ import { CONFIG } from "../../config";
 
 export const demoVertexCount = 20
 
-const rowFloats = CONFIG.RAW_FLOAT_PER_SPLAT; // float bytes = 32 / 4
+const rowFloats = CONFIG.PACKED_FLOAT_PER_SPLAT; // float bytes = 32 / 4
 const rowBytes = rowFloats * 4;
 
 export const buf = new ArrayBuffer(demoVertexCount * rowBytes)

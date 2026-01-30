@@ -7,8 +7,8 @@ import sys
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))  
 sys.path.insert(0, project_root)
 
-from src.scripts.load_ply import _load_ply
-from _read_config import config
+from src.scripts.load_ply import _load_ply, _pack_data, pack_half2, pack_half1
+from src.scripts._read_config import config
 
 class TestLoadPly(unittest.TestCase):
 
@@ -94,6 +94,45 @@ class TestLoadPly(unittest.TestCase):
         np.testing.assert_almost_equal(result[0, 25], 0.5)  # ori_r
         np.testing.assert_almost_equal(result[0, 26], 0.5)  # ori_g
         np.testing.assert_almost_equal(result[0, 27], 0.5)  # ori_b
+
+    def test_pack_data(self):
+        # Create a single splat X already in RAW format (values post-_load_ply)
+        pixels = config['PACKED_PIX_PER_SPLAT']
+        RAW = config['RAW_FLOAT_PER_SPLAT']
+        X = np.zeros((1, RAW), dtype=np.float32)
+        X[0, 0:4] = [1.0, 2.0, 3.0, 0.5]  # pos + opacity
+        X[0, 4] = 1.0  # sx
+        X[0, 5] = 1.0  # sy
+        X[0, 6:10] = [1.0, 0.0, 0.0, 0.0]  # quaternion (w,x,y,z)
+        X[0, 10:13] = [0.7, 0.8, 0.9]  # SH0 (dc)
+        X[0, 13:22] = [0.11, 0.12, 0.13, 0.21, 0.22, 0.23, 0.31, 0.32, 0.33]
+        X[0, 22:25] = [0.5, 0.5, 0.5]  # refl, rough, metal
+        X[0, 25:28] = [0.5, 0.5, 0.5]  # origin color
+
+        raw_data, vcount = _pack_data(X, pixels)
+        self.assertEqual(vcount, 1)
+
+        # Float view: first 4 floats are pos+opacity
+        tex_f32 = raw_data.view(np.float32).reshape((vcount, pixels * 4))
+        np.testing.assert_allclose(tex_f32[0, 0:4], X[0, 0:4])
+
+        # Base color (from SH0) should be written as bytes at offset 7*4
+        C0 = 0.28209479177387814
+        base = 0.5 + C0 * X[0, 10:13]
+        base_u8 = np.clip(np.round(base * 255), 0, 255).astype(np.uint8)
+        tex_u8 = raw_data.view(np.uint8).reshape((vcount, pixels * 4 * 4))
+        off = 7 * 4
+        np.testing.assert_array_equal(tex_u8[0, off:off + 3], base_u8)
+        self.assertEqual(tex_u8[0, off + 3], 255)
+
+        # SH1 packing: compare uint32 words using pack_half2 / pack_half1
+        tex_u32 = raw_data.view(np.uint32).reshape((vcount, pixels * 4))
+        sh1 = X[0, 13:22]
+        np.testing.assert_array_equal(tex_u32[0, 8], pack_half2(np.array([sh1[0]], dtype=np.float32), np.array([sh1[1]], dtype=np.float32))[0])
+        np.testing.assert_array_equal(tex_u32[0, 9], pack_half2(np.array([sh1[2]], dtype=np.float32), np.array([sh1[3]], dtype=np.float32))[0])
+        np.testing.assert_array_equal(tex_u32[0, 10], pack_half2(np.array([sh1[4]], dtype=np.float32), np.array([sh1[5]], dtype=np.float32))[0])
+        np.testing.assert_array_equal(tex_u32[0, 11], pack_half2(np.array([sh1[6]], dtype=np.float32), np.array([sh1[7]], dtype=np.float32))[0])
+        np.testing.assert_array_equal(tex_u32[0, 12], pack_half1(np.array([sh1[8]], dtype=np.float32))[0])
 
 if __name__ == '__main__':
     unittest.main()
