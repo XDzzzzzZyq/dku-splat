@@ -46,7 +46,7 @@ def pack_half1(x: np.ndarray) -> np.ndarray:
 # -----------------------------------------------------------------------------
 
 def _load_ply(filename: str) -> np.ndarray:
-    path = os.path.abspath(f"res/{filename}/point_cloud.ply")
+    path = os.path.abspath(f"res/{filename}/point_cloud_filtered.ply")
 
     ply = PlyData.read(path)
     v = ply["vertex"].data
