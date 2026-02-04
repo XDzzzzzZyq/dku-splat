@@ -94,6 +94,14 @@ export class GaussianSplatWebGL {
   }
 
   handleDepthIndex(depthIndex: Uint32Array, vertexCount: number) {
+    const geom = this.mesh.geometry as THREE.InstancedBufferGeometry
+    geom.instanceCount = vertexCount
+    this.vertexCount = vertexCount
+    if (vertexCount === 0) {
+      this.idx_buffer = null
+      this.forwardMaterial.uniforms.idx_buffer.value = null
+      return
+    }
     const texture = new THREE.DataTexture(
       depthIndex,
       CONFIG.DATA_TEXTURE_WIDTH,
@@ -108,10 +116,6 @@ export class GaussianSplatWebGL {
     texture.wrapT = THREE.ClampToEdgeWrapping
     texture.generateMipmaps = false
     this.forwardMaterial.uniforms.idx_buffer.value = texture
-
-    const geom = this.mesh.geometry as THREE.InstancedBufferGeometry
-    geom.instanceCount = vertexCount
-    this.vertexCount = vertexCount
     this.idx_buffer = texture
   }
 
@@ -126,7 +130,7 @@ export class GaussianSplatWebGL {
     this.forwardMaterial.uniforms.focal.value.set(fx, fy, fz)
     // forward-only: update forward material uniforms
     if (!this.worker) return
-    this.worker.postMessage({ view: viewMatrix })
+    this.worker.postMessage({ view: viewMatrix, projection: projectionMatrix })
   }
 
   createGBufferMaterial(): THREE.RawShaderMaterial {
