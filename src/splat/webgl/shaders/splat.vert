@@ -118,6 +118,16 @@ void main()
     vec2 ax_2 = min(sqrt(lambda2), 1024.0) * vec2(ax_diag.y, -ax_diag.x);
 
     scale = 6.0;
+    float ndc_z = pos_proj.z / pos_proj.w;
+    float maxRadius = scale * max(length(ax_1), length(ax_2));
+    if (pos_proj.w <= 0.0 ||
+        center.x + maxRadius < -1.0 || center.x - maxRadius > 1.0 ||
+        center.y + maxRadius < -1.0 || center.y - maxRadius > 1.0 ||
+        ndc_z < -1.0 || ndc_z > 1.0) {
+        gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+        return;
+    }
+
     gl_Position = vec4(center + position.x * ax_1 * scale + position.y * ax_2 * scale, 0.0, 1.0);
 
     // axis correction --------------------------------------------------

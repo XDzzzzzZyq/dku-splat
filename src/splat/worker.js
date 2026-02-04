@@ -6,44 +6,8 @@ function createWorker(self) {
     let buffer = null;
     let vertexCount = 0;
 
-    var _floatView = new Float32Array(1);
-    var _int32View = new Int32Array(_floatView.buffer);
-
     var _lastView = new Float32Array(16);
     var _lastProjection = new Float32Array(16);
-
-    function floatToUint(v) {
-        _floatView[0] = v;
-        return _int32View[0] >>> 0;
-    }
-
-    function halfToFloat(h) {
-        const s = (h & 0x8000) >> 15;
-        const e = (h & 0x7C00) >> 10;
-        const f = h & 0x03FF;
-        if (e === 0) return (s ? -1 : 1) * Math.pow(2, -14) * (f / 1024);
-        if (e === 0x1F) return f ? NaN : ((s ? -1 : 1) * Infinity);
-        return (s ? -1 : 1) * Math.pow(2, e - 15) * (1 + f / 1024);
-    }
-
-    function unpackHalf2x16FromFloat(v) {
-        const u = floatToUint(v);
-        const h0 = u & 0xFFFF;
-        const h1 = (u >>> 16) & 0xFFFF;
-        return [halfToFloat(h0), halfToFloat(h1)];
-    }
-
-    function estimateWorldRadius(covPackX, covPackY, covPackZ) {
-        const u1 = unpackHalf2x16FromFloat(covPackX);
-        const u2 = unpackHalf2x16FromFloat(covPackY);
-        const u3 = unpackHalf2x16FromFloat(covPackZ);
-        // RS columns after transpose in shader
-        const rs1x = u1[0], rs1y = u2[0], rs1z = u3[0];
-        const rs2x = u1[1], rs2y = u2[1], rs2z = u3[1];
-        const len1 = Math.hypot(rs1x, rs1y, rs1z);
-        const len2 = Math.hypot(rs2x, rs2y, rs2z);
-        return Math.max(len1, len2);
-    }
 
     function multiplyMat4(out, a, b) {
         // column-major out = a * b
@@ -110,7 +74,6 @@ function createWorker(self) {
         const TEX_STRIDE = CONFIG.PACKED_FLOAT_PER_SPLAT; // 16
         const viewProj = new Float32Array(16);
         multiplyMat4(viewProj, projection, view);
-        const projScale = Math.max(Math.abs(projection[0] || 0), Math.abs(projection[5] || 0));
 
         const f_buffer = new Float32Array(buffer);
         let maxDepth = -Infinity, minDepth = Infinity;
@@ -134,15 +97,8 @@ function createWorker(self) {
             const ndcX = clipX / clipW;
             const ndcY = clipY / clipW;
             const ndcZ = clipZ / clipW;
-            if (ndcX < -1 || ndcX > 1 || ndcY < -1 || ndcY > 1 || ndcZ < -1 || ndcZ > 1) continue;
-
-            const covPackX = f_buffer[TEX_STRIDE * i + 4];
-            const covPackY = f_buffer[TEX_STRIDE * i + 5];
-            const covPackZ = f_buffer[TEX_STRIDE * i + 6];
-            const worldRadius = estimateWorldRadius(covPackX, covPackY, covPackZ);
-            const rNdc = projScale > 0 ? (projScale * worldRadius) / (-viewZ) : 0;
-
-            if (ndcX < -1 - rNdc || ndcX > 1 + rNdc || ndcY < -1 - rNdc || ndcY > 1 + rNdc) continue;
+            const margin = 0.25;
+            if (ndcX < -1 - margin || ndcX > 1 + margin || ndcY < -1 - margin || ndcY > 1 + margin || ndcZ < -1 - margin || ndcZ > 1 + margin) continue;
 
             const depth = (viewZ * 4096) | 0;
             sizeList[visibleCount] = depth;
