@@ -9,7 +9,7 @@ site = 'car'
 mesh_path = f"res/{site}/mesh.ply"
 gs_ply_path = f"res/{site}/point_cloud.ply"
 out_path = f"res/{site}/point_cloud_filtered.ply"
-distance_thresh = 0.02  # meters
+distance_thresh = 0.1  # meters
 
 # ----------------------------
 # Load mesh (geometry only)

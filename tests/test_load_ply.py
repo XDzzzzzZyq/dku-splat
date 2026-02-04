@@ -51,8 +51,15 @@ class TestLoadPly(unittest.TestCase):
 
         mock_read.return_value = mock_ply
 
+        rot_x_180 = np.array([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, -1.0, 0.0, 0.0],
+            [0.0, 0.0, -1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ], dtype=np.float32)
+
         # Call the function
-        result = _load_ply('test')
+        result = _load_ply('test', transform=rot_x_180)
 
         # Assert shape and dtype
         self.assertEqual(result.shape, (1, config['RAW_FLOAT_PER_SPLAT']))
@@ -61,30 +68,28 @@ class TestLoadPly(unittest.TestCase):
         # Check some specific values (approximate due to floating point)
         expected_sx = np.exp(0.1)
         expected_sy = np.exp(0.2)
-        expected_sz = 0.0
 
         np.testing.assert_almost_equal(result[0, 0], 1.0)  # x
-        np.testing.assert_almost_equal(result[0, 1], 2.0)  # y
-        np.testing.assert_almost_equal(result[0, 2], 3.0)  # z
+        np.testing.assert_almost_equal(result[0, 1], -2.0)  # y (rotated)
+        np.testing.assert_almost_equal(result[0, 2], -3.0)  # z (rotated)
         np.testing.assert_almost_equal(result[0, 3], 0.5)  # opacity
         np.testing.assert_almost_equal(result[0, 4], expected_sx)  # sx
         np.testing.assert_almost_equal(result[0, 5], expected_sy)  # sy
-        np.testing.assert_almost_equal(result[0, 6], expected_sz)  # sz
-        # Euler angles would require calculation, skipping for brevity
+        # Quaternion check skipped for brevity
         # SH0 (dc)
         np.testing.assert_almost_equal(result[0, 10], 0.7)
         np.testing.assert_almost_equal(result[0, 11], 0.8)
         np.testing.assert_almost_equal(result[0, 12], 0.9)
         # SH1 (first order) sequence
         np.testing.assert_almost_equal(result[0, 13], 0.11)
-        np.testing.assert_almost_equal(result[0, 14], 0.12)
-        np.testing.assert_almost_equal(result[0, 15], 0.13)
+        np.testing.assert_almost_equal(result[0, 14], -0.12)
+        np.testing.assert_almost_equal(result[0, 15], -0.13)
         np.testing.assert_almost_equal(result[0, 16], 0.21)
-        np.testing.assert_almost_equal(result[0, 17], 0.22)
-        np.testing.assert_almost_equal(result[0, 18], 0.23)
+        np.testing.assert_almost_equal(result[0, 17], -0.22)
+        np.testing.assert_almost_equal(result[0, 18], -0.23)
         np.testing.assert_almost_equal(result[0, 19], 0.31)
-        np.testing.assert_almost_equal(result[0, 20], 0.32)
-        np.testing.assert_almost_equal(result[0, 21], 0.33)
+        np.testing.assert_almost_equal(result[0, 20], -0.32)
+        np.testing.assert_almost_equal(result[0, 21], -0.33)
 
         # New channels are appended at the end: refl, roughness, metalness, ori_r, ori_g, ori_b
         # With input 0.0, sigmoid(0.0) == 0.5
