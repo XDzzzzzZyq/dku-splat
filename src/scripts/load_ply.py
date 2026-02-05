@@ -3,6 +3,7 @@ from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 
 import numpy as np
+import pandas as pd
 from scipy.special import expit
 from plyfile import PlyData
 import os
@@ -54,39 +55,60 @@ def _load_ply(
     ply = PlyData.read(path)
     v = ply["vertex"].data
 
-    x = v["x"]; y = v["y"]; z = v["z"]
-    opc = expit(v["opacity"])
+    # Build a DataFrame for convenient filtering + clipping
+    df = pd.DataFrame({
+        "x": v["x"], "y": v["y"], "z": v["z"],
+        "opacity": v["opacity"],
+        "scale_0": v["scale_0"], "scale_1": v["scale_1"],
+        "rot_0": v["rot_0"], "rot_1": v["rot_1"], "rot_2": v["rot_2"], "rot_3": v["rot_3"],
+        "refl_strength": v["refl_strength"], "roughness": v["roughness"], "metalness": v["metalness"],
+        "ori_color_0": v["ori_color_0"], "ori_color_1": v["ori_color_1"], "ori_color_2": v["ori_color_2"],
+        "f_dc_0": v["f_dc_0"], "f_dc_1": v["f_dc_1"], "f_dc_2": v["f_dc_2"],
+        "f_rest_0": v["f_rest_0"], "f_rest_1": v["f_rest_1"], "f_rest_2": v["f_rest_2"],
+        "f_rest_3": v["f_rest_3"], "f_rest_4": v["f_rest_4"], "f_rest_5": v["f_rest_5"],
+        "f_rest_6": v["f_rest_6"], "f_rest_7": v["f_rest_7"], "f_rest_8": v["f_rest_8"],
+    })
 
-    sx = np.exp(v["scale_0"])
-    sy = np.exp(v["scale_1"])
+    # drop rows with NaN scales
+    df = df.dropna() 
+    q = df[["rot_0", "rot_1", "rot_2", "rot_3"]].to_numpy()
+    norm = np.linalg.norm(q, axis=-1)
+    df = df[(norm > 1e-8) & (norm < 1e20)]
 
-    qw = v["rot_0"]; qx = v["rot_1"]; qy = v["rot_2"]; qz = v["rot_3"]
-    rot = np.stack([qw, qx, qy, qz], axis=1)
+    # clip log-scale inputs to prevent overflow, then compute and clamp final scales
+    clipped_scl = df[["scale_0", "scale_1"]].clip(-20.0, 20.0)
+    df[["sx", "sy"]] = np.exp(clipped_scl.to_numpy())
 
-    refl = expit(v["refl_strength"])
-    rough = expit(v["roughness"])
-    metal = expit(v["metalness"])
-
-    ori_r = expit(v["ori_color_0"])
-    ori_g = expit(v["ori_color_1"])
-    ori_b = expit(v["ori_color_2"])
-
-    sh0 = np.stack([v["f_dc_0"], v["f_dc_1"], v["f_dc_2"]], axis=1)
-
-    sh1 = np.stack([
-        v["f_rest_0"], v["f_rest_1"], v["f_rest_2"],
-        v["f_rest_3"], v["f_rest_4"], v["f_rest_5"],
-        v["f_rest_6"], v["f_rest_7"], v["f_rest_8"],
-    ], axis=1)
+    # derived fields
+    color_keys_in = ["opacity", "refl_strength", "roughness", "metalness",
+                     "ori_color_0", "ori_color_1", "ori_color_2"]
+    color_key_out = ["opc", "refl", "rough", "metal", "ori_r", "ori_g", "ori_b"]
+    df[color_key_out] = expit(df[color_keys_in].to_numpy())
 
     if transform is not None:
+        # working arrays for transform
+        pos = df[["x", "y", "z"]].to_numpy()
+        sx = df["sx"].to_numpy()
+        sy = df["sy"].to_numpy()
+        q = df[["rot_0", "rot_1", "rot_2", "rot_3"]].to_numpy()
+        qw, qx, qy, qz = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+        sh1 = df[[
+            "f_rest_0", "f_rest_1", "f_rest_2",
+            "f_rest_3", "f_rest_4", "f_rest_5",
+            "f_rest_6", "f_rest_7", "f_rest_8",
+        ]].to_numpy()
+
         t = np.asarray(transform, dtype=np.float32)
         if t.shape != (4, 4):
             raise ValueError("transform must be 4x4")
-        pos = np.stack([x, y, z, np.ones_like(x)], axis=1)
-        pos = (t @ pos.T).T
-        x, y, z = pos[:, 0], pos[:, 1], pos[:, 2]
+        
+        # apply transformation to positions
+        pos = np.concatenate([pos, np.ones((pos.shape[0], 1), dtype=np.float32)], axis=1)
+        pos_transformed = pos @ t.T 
 
+        # apply transformation to scales
+
+        # apply rotation to SHH coefficients
         l = t[:3, :3]
         r0 = l[:, 0]
         r0 = r0 / (np.linalg.norm(r0) + 1e-8)
@@ -99,9 +121,8 @@ def _load_ply(
         sh1_triplets = sh1.reshape(-1, 3, 3)
         sh1 = (sh1_triplets @ rot_l.T).reshape(-1, 9)
 
-    if transform is not None:
-        qw, qx, qy, qz = rot.T
-        norm = np.sqrt(qw*qw + qx*qx + qy*qy + qz*qz)
+        # apply rotation to quaterions
+        norm = np.linalg.norm(q, axis=-1)
         norm[norm == 0] = 1.0
         w, xq, yq, zq = qw/norm, qx/norm, qy/norm, qz/norm
 
@@ -173,17 +194,35 @@ def _load_ply(
         qy2[m3] = (r12n[m3] + r21n[m3]) / s3
         qz2[m3] = 0.25 * s3
 
-        rot = np.stack([qw2, qx2, qy2, qz2], axis=1)
+        # write transformed values back to df
+        df[["x", "y", "z"]] = pos_transformed[:, :3]
+        df["sx"] = sx
+        df["sy"] = sy
+        df["rot_0"] = qw2
+        df["rot_1"] = qx2
+        df["rot_2"] = qy2
+        df["rot_3"] = qz2
+        df[[
+            "f_rest_0", "f_rest_1", "f_rest_2",
+            "f_rest_3", "f_rest_4", "f_rest_5",
+            "f_rest_6", "f_rest_7", "f_rest_8",
+        ]] = sh1
 
-    X = np.stack([x, y, z, opc, sx, sy], axis=1)
-    X = np.concatenate([X, rot, sh0, sh1], axis=1)
-    X = np.concatenate([
-        X,
-        np.stack([refl, rough, metal], axis=1),
-        np.stack([ori_r, ori_g, ori_b], axis=1),
-    ], axis=1)
+    # final filtering based on computed fields
+    #df = df[(df["sx"] > 1e-2) & (df["sy"] > 1e-2) & (df["opc"] > 1e-2)]
 
-    return X.astype(np.float32)
+    # return in the same layout expected downstream
+    out_cols = [
+        "x", "y", "z", "opc", "sx", "sy",
+        "rot_0", "rot_1", "rot_2", "rot_3",
+        "f_dc_0", "f_dc_1", "f_dc_2",
+        "f_rest_0", "f_rest_1", "f_rest_2",
+        "f_rest_3", "f_rest_4", "f_rest_5",
+        "f_rest_6", "f_rest_7", "f_rest_8",
+        "refl", "rough", "metal",
+        "ori_r", "ori_g", "ori_b",
+    ]
+    return df[out_cols].to_numpy(dtype=np.float32)
 
 
 # -----------------------------------------------------------------------------
@@ -218,9 +257,10 @@ def _pack_data(
 
     sx = X[:, 4]
     sy = X[:, 5]
-    qw, qx, qy, qz = X[:, 6:10].T
+    q = X[:, 6:10]
+    qw, qx, qy, qz = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
 
-    norm = np.sqrt(qw*qw + qx*qx + qy*qy + qz*qz)
+    norm = np.linalg.norm(q, axis=-1)
     norm[norm == 0] = 1.0
     w, x, y, z = qw/norm, qx/norm, qy/norm, qz/norm
 
@@ -294,6 +334,8 @@ def _pack_data(
 
 @app.get("/ply")
 def load_ply(filename: str = Query(...)):
+    USE_CACHE = True
+
     from src.scripts._read_config import config
     rot_x_180 = np.array([
         [1.0, 0.0, 0.0, 0.0],
@@ -304,7 +346,7 @@ def load_ply(filename: str = Query(...)):
     cache_dir = os.path.abspath(f"res/{filename}")
     cache_path = os.path.join(cache_dir, f"packed_{config['PACKED_PIX_PER_SPLAT']}.npz")
 
-    if os.path.exists(cache_path):
+    if os.path.exists(cache_path) and USE_CACHE:
         cached = np.load(cache_path)
         raw_data = cached["raw_data"]
         vertexCount = int(cached["vertexCount"])
