@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import deferredVert from './shaders/deferred.vert?raw'
-import deferredFrag from './shaders/deferred.frag?raw'
+import deferredFrag from './shaders/ssr.frag?raw'
 
 export class DeferredWebGL {
   gbufferMaterial: THREE.RawShaderMaterial | null = null
@@ -52,6 +52,14 @@ export class DeferredWebGL {
           tPbr: { value: null },
           tNormal: { value: null },
           uMode: { value: this.deferredMode },
+          uProj: { value: new THREE.Matrix4() },
+          uCameraPos: { value: new THREE.Vector3() },
+          uResolution: { value: new THREE.Vector2(1, 1) },
+          uMaxDistance: { value: 10.0 },
+          uStride: { value: 1.0 },
+          uMaxSteps: { value: 64 },
+          uThickness: { value: 0.1 },
+          uJitter: { value: 0.5 },
         },
       })
 
@@ -139,6 +147,17 @@ export class DeferredWebGL {
     if (this.gbufferTarget.width !== size.x || this.gbufferTarget.height !== size.y) {
       this.resize(renderer, size.x, size.y)
       if (!this.gbufferTarget) return
+    }
+
+    const resolveMat = this.resolveMesh?.material as THREE.RawShaderMaterial | null
+    if (resolveMat?.uniforms) {
+      const viewProj = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+      const cameraPos = new THREE.Vector3()
+      camera.getWorldPosition(cameraPos)
+
+      if (resolveMat.uniforms.uProj) resolveMat.uniforms.uProj.value.copy(viewProj)
+      if (resolveMat.uniforms.uCameraPos) resolveMat.uniforms.uCameraPos.value.copy(cameraPos)
+      if (resolveMat.uniforms.uResolution) resolveMat.uniforms.uResolution.value.set(size.x, size.y)
     }
 
     // Wire stored textures/uniforms into the provided gbuffer material.
