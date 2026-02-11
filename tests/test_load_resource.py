@@ -19,7 +19,7 @@ class TestLoadPly(unittest.TestCase):
             (
                 1.0, 2.0, 3.0, 0.0,  # pos + opacity
                 0.1, 0.2,            # scales (sz derived as 0)
-                0.0, 0.0, 0.0, 0.0,  # rot quaternion (identity-ish)
+                1.0, 0.0, 0.0, 0.0,  # rot quaternion (identity-ish)
                 # PBR (sigmoid is applied in loader)
                 0.0, 0.0, 0.0,        # refl_strength, roughness, metalness
                 # origin color (sigmoid is applied in loader)
