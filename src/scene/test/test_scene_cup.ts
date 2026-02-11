@@ -1,6 +1,6 @@
 import { CONFIG } from "../../config";
 
-const filename = "coffee";
+const filename = "pavilion";
 const res = await fetch(`http://localhost:8000/ply?filename=${encodeURIComponent(filename)}`);
 const raw_byte = await res.arrayBuffer();
 const srcFloats = new Float32Array(raw_byte);
@@ -21,8 +21,10 @@ const mapFloats = new Float32Array(map_byte);
 export const map_buf: ArrayBuffer = mapFloats.buffer;
 
 export const map_width = Number(mapres.headers.get("width"))
-if (mapFloats.length % (6 * map_width) != 0) {
+const expected = 6 * map_width * map_width * 4
+if (mapFloats.length !== expected) {
     console.log("Buffer Length:", mapFloats.length)
+    console.log("Expected Length:", expected)
     console.log("Width:", map_width)
     throw new Error("Map Dimension Unmatched");
 }

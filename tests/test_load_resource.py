@@ -141,12 +141,12 @@ class TestLoadPly(unittest.TestCase):
 
     @patch('src.scripts.load_resource.np.load')
     def test_load_map(self, mock_load):
-        fake_map = np.ones((6, 128, 128, 3), dtype=np.float32)
+        fake_map = np.ones((6, 128, 128, 3), dtype=np.float32)  # RGB format without alpha
         mock_load.return_value = {'arr_0': fake_map}
 
         result = _load_map('test')
 
-        self.assertEqual(result.shape, (6, 128, 128, 3))
+        self.assertEqual(result.shape, (6, 128, 128, 4))        # RGBA shape
         self.assertEqual(result.dtype, np.float32)
         args, _ = mock_load.call_args
         self.assertTrue(args[0].endswith(os.path.join('res', 'test', 'map1.npz')))

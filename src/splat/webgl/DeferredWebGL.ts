@@ -11,7 +11,7 @@ export class DeferredWebGL {
   deferredMode = 2
   data_texture: THREE.DataTexture | null = null
   idx_buffer: THREE.DataTexture | null = null
-  env_texture: THREE.DataTexture | null = null
+  env_texture: THREE.CubeTexture | null = null
 
   constructor() {
     // DeferredWebGL does not own or compile splat materials; it only manages
@@ -143,32 +143,37 @@ export class DeferredWebGL {
 
   setEnvironmentMap(buffer: ArrayBuffer) {
     const floats = new Float32Array(buffer)
-    const facePixels = floats.length / (6 * 3)
+    const facePixels = floats.length / (6 * 4) // 6 faces, RGBA
     const faceSize = Math.round(Math.sqrt(facePixels))
-    if (!Number.isFinite(faceSize) || faceSize <= 0 || faceSize * faceSize * 6 * 3 !== floats.length) {
+    if (!Number.isFinite(faceSize) || faceSize <= 0 || faceSize * faceSize * 6 * 4 !== floats.length) {
       throw new Error('Environment map buffer size is invalid')
     }
 
-    const rgba = new Float32Array(faceSize * faceSize * 6 * 4)
-    for (let i = 0, j = 0; i < floats.length; i += 3, j += 4) {
-      rgba[j] = floats[i]
-      rgba[j + 1] = floats[i + 1]
-      rgba[j + 2] = floats[i + 2]
-      rgba[j + 3] = 1.0
+    const faceTextures: THREE.DataTexture[] = []
+    const faceStride = faceSize * faceSize * 4
+    for (let f = 0; f < 6; f += 1) {
+      const offsetBytes = f * faceStride * 4
+      const faceRgba = new Float32Array(buffer, offsetBytes, faceStride)
+      const faceTex = new THREE.DataTexture(faceRgba, faceSize, faceSize, THREE.RGBAFormat, THREE.FloatType)
+      faceTex.needsUpdate = true
+      faceTextures.push(faceTex)
     }
 
-    const tex = new THREE.DataTexture(rgba, faceSize, faceSize * 6, THREE.RGBAFormat, THREE.FloatType)
-    tex.needsUpdate = true
-    tex.magFilter = THREE.LinearFilter
-    tex.minFilter = THREE.LinearFilter
-    tex.wrapS = THREE.ClampToEdgeWrapping
-    tex.wrapT = THREE.ClampToEdgeWrapping
-    tex.generateMipmaps = false
-    this.env_texture = tex
+    const cube = new THREE.CubeTexture()
+    cube.images = faceTextures as any
+    cube.format = THREE.RGBAFormat
+    cube.type = THREE.FloatType
+    cube.magFilter = THREE.LinearFilter
+    cube.minFilter = THREE.LinearFilter
+    cube.wrapS = THREE.ClampToEdgeWrapping
+    cube.wrapT = THREE.ClampToEdgeWrapping
+    cube.generateMipmaps = false
+    cube.needsUpdate = true
+    this.env_texture = cube
 
     const resolveMat = this.resolveMesh?.material as THREE.RawShaderMaterial | null
     if (resolveMat?.uniforms) {
-      resolveMat.uniforms.uEnvMap.value = tex
+      resolveMat.uniforms.uEnvMap.value = cube
       resolveMat.uniforms.uEnvMapEnabled.value = 1.0
     }
   }

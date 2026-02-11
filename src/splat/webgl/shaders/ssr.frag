@@ -4,7 +4,7 @@ uniform sampler2D tColor;
 uniform sampler2D tPos;
 uniform sampler2D tPbr;
 uniform sampler2D tNormal;
-uniform sampler2D uEnvMap;
+uniform samplerCube uEnvMap;
 uniform float uEnvMapEnabled;
 
 uniform mat4 uProj;
@@ -49,40 +49,7 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
 
 vec3 sampleEnv(vec3 dir) {
     if (uEnvMapEnabled < 0.5) return vec3(0.0);
-    vec3 ad = abs(dir);
-    float ma = max(max(ad.x, ad.y), ad.z);
-    vec2 uv;
-    float face = 0.0;
-
-    if (ad.x >= ad.y && ad.x >= ad.z) {
-        if (dir.x > 0.0) {
-            face = 0.0;
-            uv = vec2(-dir.z, -dir.y) / ma;
-        } else {
-            face = 1.0;
-            uv = vec2(dir.z, -dir.y) / ma;
-        }
-    } else if (ad.y >= ad.x && ad.y >= ad.z) {
-        if (dir.y > 0.0) {
-            face = 2.0;
-            uv = vec2(dir.x, dir.z) / ma;
-        } else {
-            face = 3.0;
-            uv = vec2(dir.x, -dir.z) / ma;
-        }
-    } else {
-        if (dir.z > 0.0) {
-            face = 4.0;
-            uv = vec2(dir.x, -dir.y) / ma;
-        } else {
-            face = 5.0;
-            uv = vec2(-dir.x, -dir.y) / ma;
-        }
-    }
-
-    uv = uv * 0.5 + 0.5;
-    vec2 atlasUv = vec2(uv.x, (uv.y + face) / 6.0);
-    return texture(uEnvMap, atlasUv).rgb;
+    return texture(uEnvMap, normalize(dir)).rgb;
 }
 
 vec3 getWorldRay(vec2 uv) {

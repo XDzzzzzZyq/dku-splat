@@ -337,6 +337,10 @@ def _load_map(
     assert map.dtype == np.float32
     assert map.shape[1] == map.shape[2]
 
+    if map.shape[-1] == 3:
+        alpha = np.ones((*map.shape[:3], 1), dtype=np.float32)
+        map = np.concatenate([map, alpha], axis=-1)
+
     return map
 
 
