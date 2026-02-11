@@ -48,8 +48,7 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
 }
 
 vec3 sampleEnv(vec3 dir) {
-    if (uEnvMapEnabled < 0.5) return vec3(0.0);
-    return texture(uEnvMap, normalize(dir)).rgb;
+    return texture(uEnvMap, normalize(dir)).rgb * uEnvMapEnabled;
 }
 
 vec3 getWorldRay(vec2 uv) {
@@ -111,11 +110,10 @@ void main() {
     vec3 F = fresnelSchlick(cosTheta, F0);
 
     float specWeight = (1.0 - roughness);
-    vec3 envColor = sampleEnv(reflDir);
-    vec3 specSource = mix(envColor, hitColor, hit);
+    vec3 specSource = mix(sampleEnv(reflDir), hitColor, hit);
     vec3 specular = specSource * F * specWeight;
     vec3 diffuse = col.rgb * (1.0 - F) * (1.0 - metallic);
 
     vec3 outColor = (diffuse + specular) * ao;
-    fragColor = vec4(outColor, col.a);
+    fragColor = vec4(mix(sampleEnv(viewDir), outColor, col.a), 1.0);
 }
