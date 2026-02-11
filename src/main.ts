@@ -5,7 +5,7 @@ import { controls } from './scene/controls'
 // Auto-select splat implementation (WebGPU vs WebGL)
 import { Button3D } from './ui3d/Button3D'
 
-import {demoVertexCount, buf, map_buf} from './scene/test/test_scene_cup'
+import { demoVertexCount, buf, map_buf } from './scene/main/pavilion_scene'
 
 // Log renderer capabilities where available (WebGPU renderer may not expose same fields)
 const render_capabilities =

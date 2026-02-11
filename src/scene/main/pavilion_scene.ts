@@ -1,6 +1,6 @@
 import { CONFIG } from "../../config";
 
-const filename = "coffee";
+const filename = "pavilion";
 const res = await fetch(`http://localhost:8000/ply?filename=${encodeURIComponent(filename)}`);
 const raw_byte = await res.arrayBuffer();
 const srcFloats = new Float32Array(raw_byte);
@@ -15,19 +15,16 @@ if (!(verts == Number(res.headers.get("n-vertex"))) || !(CONFIG.PACKED_FLOAT_PER
     throw new Error("Point Cloud Dimension Unmatched");
 }
 
-export const map_width = 8;
-export const map_buf = new ArrayBuffer(6 * map_width * map_width * 4 * 4);
-const mapFloats = new Float32Array(map_buf);
-for (let face = 0; face < 6; face += 1) {
-    const faceOffset = face * map_width * map_width * 4;
-    const baseR = face / 5;
-    const baseG = 1.0 - baseR;
-    const baseB = 0.5;
-    for (let i = 0; i < map_width * map_width; i += 1) {
-        const idx = faceOffset + i * 4;
-        mapFloats[idx] = baseR;
-        mapFloats[idx + 1] = baseG;
-        mapFloats[idx + 2] = baseB;
-        mapFloats[idx + 3] = 1.0;
-    }
+const mapres = await fetch(`http://localhost:8000/map?filename=${encodeURIComponent(filename)}`);
+const map_byte = await mapres.arrayBuffer();
+const mapFloats = new Float32Array(map_byte);
+export const map_buf: ArrayBuffer = mapFloats.buffer;
+
+export const map_width = Number(mapres.headers.get("width"));
+const expected = 6 * map_width * map_width * 4;
+if (mapFloats.length !== expected) {
+    console.log("Buffer Length:", mapFloats.length);
+    console.log("Expected Length:", expected);
+    console.log("Width:", map_width);
+    throw new Error("Map Dimension Unmatched");
 }
