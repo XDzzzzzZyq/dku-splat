@@ -19,7 +19,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["GET"],
     allow_headers=["*"],
-    expose_headers=["n-vertex", "n-channels", "dtype"],
+    expose_headers=["n-vertex", "n-channels", 'width', "dtype"],
 )
 
 # -----------------------------------------------------------------------------
@@ -327,6 +327,18 @@ def _pack_data(
 
     return raw_data, vcount
 
+def _load_map(
+    filename: str,
+    transform: np.ndarray | None = None,
+) -> np.ndarray:
+    path = os.path.abspath(f"res/{filename}/map1.npz")
+    map = np.load(path)['arr_0']
+
+    assert map.dtype == np.float32
+    assert map.shape[1] == map.shape[2]
+
+    return map
+
 
 # -----------------------------------------------------------------------------
 # API endpoint
@@ -365,6 +377,23 @@ def load_ply(filename: str = Query(...)):
             "n-vertex": str(vertexCount),
             "n-channels": str(16),
             "dtype": "float32"
+        })
+
+
+@app.get("/map")
+def load_map(filename: str = Query(...)):
+
+    from src.scripts._read_config import config
+    map = _load_map(
+        filename,
+    )
+    map = np.ascontiguousarray(map, dtype=np.float32)
+
+    return Response(
+        map.tobytes(),
+        media_type="application/octet-stream",
+        headers={
+            "width": str(map.shape[1])
         })
 
 
