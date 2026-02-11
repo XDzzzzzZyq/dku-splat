@@ -4,8 +4,12 @@ uniform sampler2D tColor;
 uniform sampler2D tPos;
 uniform sampler2D tPbr;
 uniform sampler2D tNormal;
+uniform sampler2D uEnvMap;
+uniform float uEnvMapEnabled;
 
 uniform mat4 uProj;
+uniform mat4 uInvProj;
+uniform mat4 uInvView;
 uniform vec3 uCameraPos;
 uniform vec2 uResolution;
 uniform float uMaxDistance;
@@ -43,11 +47,64 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
+vec3 sampleEnv(vec3 dir) {
+    if (uEnvMapEnabled < 0.5) return vec3(0.0);
+    vec3 ad = abs(dir);
+    float ma = max(max(ad.x, ad.y), ad.z);
+    vec2 uv;
+    float face = 0.0;
+
+    if (ad.x >= ad.y && ad.x >= ad.z) {
+        if (dir.x > 0.0) {
+            face = 0.0;
+            uv = vec2(-dir.z, -dir.y) / ma;
+        } else {
+            face = 1.0;
+            uv = vec2(dir.z, -dir.y) / ma;
+        }
+    } else if (ad.y >= ad.x && ad.y >= ad.z) {
+        if (dir.y > 0.0) {
+            face = 2.0;
+            uv = vec2(dir.x, dir.z) / ma;
+        } else {
+            face = 3.0;
+            uv = vec2(dir.x, -dir.z) / ma;
+        }
+    } else {
+        if (dir.z > 0.0) {
+            face = 4.0;
+            uv = vec2(dir.x, -dir.y) / ma;
+        } else {
+            face = 5.0;
+            uv = vec2(-dir.x, -dir.y) / ma;
+        }
+    }
+
+    uv = uv * 0.5 + 0.5;
+    vec2 atlasUv = vec2(uv.x, (uv.y + face) / 6.0);
+    return texture(uEnvMap, atlasUv).rgb;
+}
+
+vec3 getWorldRay(vec2 uv) {
+    vec2 ndc = uv * 2.0 - 1.0;
+    vec4 clip = vec4(ndc, 1.0, 1.0);
+    vec4 view = uInvProj * clip;
+    vec3 viewDir = normalize(view.xyz / max(view.w, 1e-6));
+    vec3 worldDir = normalize((uInvView * vec4(viewDir, 0.0)).xyz);
+    return worldDir;
+}
+
 void main() {
     vec4 col = resolveWeighted(tColor, vUv);
     vec3 m = resolveWeighted(tPbr, vUv).rgb;
     vec3 p = resolveWeighted(tPos, vUv).rgb;
     vec3 n = normalize(resolveWeighted(tNormal, vUv).rgb);
+
+    if (col.a <= 0.0) {
+        vec3 bgDir = getWorldRay(vUv);
+        fragColor = vec4(sampleEnv(bgDir), 1.0);
+        return;
+    }
 
     // PBR layout: refl_strength (r), roughness (g), metallic (b)
     float roughness = mix(0.5, 1.0, clamp(m.g, 0.0, 1.0));
@@ -86,8 +143,10 @@ void main() {
     vec3 F0 = mix(vec3(0.04), col.rgb, metallic);
     vec3 F = fresnelSchlick(cosTheta, F0);
 
-    float ssrWeight = hit * (1.0 - roughness);
-    vec3 specular = hitColor * F * ssrWeight;
+    float specWeight = (1.0 - roughness);
+    vec3 envColor = sampleEnv(reflDir);
+    vec3 specSource = mix(envColor, hitColor, hit);
+    vec3 specular = specSource * F * specWeight;
     vec3 diffuse = col.rgb * (1.0 - F) * (1.0 - metallic);
 
     vec3 outColor = (diffuse + specular) * ao;

@@ -11,6 +11,7 @@ export class DeferredWebGL {
   deferredMode = 2
   data_texture: THREE.DataTexture | null = null
   idx_buffer: THREE.DataTexture | null = null
+  env_texture: THREE.DataTexture | null = null
 
   constructor() {
     // DeferredWebGL does not own or compile splat materials; it only manages
@@ -51,8 +52,12 @@ export class DeferredWebGL {
           tPos: { value: null },
           tPbr: { value: null },
           tNormal: { value: null },
+          uEnvMap: { value: null },
+          uEnvMapEnabled: { value: 0.0 },
           uMode: { value: this.deferredMode },
           uProj: { value: new THREE.Matrix4() },
+          uInvProj: { value: new THREE.Matrix4() },
+          uInvView: { value: new THREE.Matrix4() },
           uCameraPos: { value: new THREE.Vector3() },
           uResolution: { value: new THREE.Vector2(1, 1) },
           uMaxDistance: { value: 10.0 },
@@ -73,6 +78,11 @@ export class DeferredWebGL {
         resolveMat.uniforms.tPos.value = this.gbufferTarget.texture[1]
         resolveMat.uniforms.tPbr.value = this.gbufferTarget.texture[2]
         if (this.gbufferTarget.texture[3]) resolveMat.uniforms.tNormal.value = this.gbufferTarget.texture[3]
+      }
+
+      if (this.env_texture) {
+        resolveMat.uniforms.uEnvMap.value = this.env_texture
+        resolveMat.uniforms.uEnvMapEnabled.value = 1.0
       }
     }
   }
@@ -131,6 +141,38 @@ export class DeferredWebGL {
     // stored for wiring into the provided gbuffer material during render
   }
 
+  setEnvironmentMap(buffer: ArrayBuffer) {
+    const floats = new Float32Array(buffer)
+    const facePixels = floats.length / (6 * 3)
+    const faceSize = Math.round(Math.sqrt(facePixels))
+    if (!Number.isFinite(faceSize) || faceSize <= 0 || faceSize * faceSize * 6 * 3 !== floats.length) {
+      throw new Error('Environment map buffer size is invalid')
+    }
+
+    const rgba = new Float32Array(faceSize * faceSize * 6 * 4)
+    for (let i = 0, j = 0; i < floats.length; i += 3, j += 4) {
+      rgba[j] = floats[i]
+      rgba[j + 1] = floats[i + 1]
+      rgba[j + 2] = floats[i + 2]
+      rgba[j + 3] = 1.0
+    }
+
+    const tex = new THREE.DataTexture(rgba, faceSize, faceSize * 6, THREE.RGBAFormat, THREE.FloatType)
+    tex.needsUpdate = true
+    tex.magFilter = THREE.LinearFilter
+    tex.minFilter = THREE.LinearFilter
+    tex.wrapS = THREE.ClampToEdgeWrapping
+    tex.wrapT = THREE.ClampToEdgeWrapping
+    tex.generateMipmaps = false
+    this.env_texture = tex
+
+    const resolveMat = this.resolveMesh?.material as THREE.RawShaderMaterial | null
+    if (resolveMat?.uniforms) {
+      resolveMat.uniforms.uEnvMap.value = tex
+      resolveMat.uniforms.uEnvMapEnabled.value = 1.0
+    }
+  }
+
   // Deferred does not keep material uniforms; these are applied to the
   // material provided at render time. We keep no matrix state here.
 
@@ -156,6 +198,8 @@ export class DeferredWebGL {
       camera.getWorldPosition(cameraPos)
 
       if (resolveMat.uniforms.uProj) resolveMat.uniforms.uProj.value.copy(viewProj)
+      if (resolveMat.uniforms.uInvProj) resolveMat.uniforms.uInvProj.value.copy(camera.projectionMatrixInverse)
+      if (resolveMat.uniforms.uInvView) resolveMat.uniforms.uInvView.value.copy(camera.matrixWorld)
       if (resolveMat.uniforms.uCameraPos) resolveMat.uniforms.uCameraPos.value.copy(cameraPos)
       if (resolveMat.uniforms.uResolution) resolveMat.uniforms.uResolution.value.set(size.x, size.y)
     }

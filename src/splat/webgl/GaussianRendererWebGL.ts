@@ -20,6 +20,11 @@ export class GaussianRendererWebGL {
     this.splat.setBuffer(buffer, vertexCount)
   }
 
+  setEnvironmentMap(buffer: ArrayBuffer) {
+    if (!this.deferred) this.deferred = new DeferredWebGL()
+    this.deferred.setEnvironmentMap(buffer)
+  }
+
   toggleVisible() {
     this.splat.toggleVisible()
   }
@@ -36,9 +41,9 @@ export class GaussianRendererWebGL {
     }
     if (!this.deferred) {
       this.deferred = new DeferredWebGL()
-      if ((this.splat as any).data_texture) this.deferred.setDataTexture((this.splat as any).data_texture)
-      if ((this.splat as any).idx_buffer) this.deferred.setIdxBuffer((this.splat as any).idx_buffer)
     }
+    if ((this.splat as any).data_texture) this.deferred.setDataTexture((this.splat as any).data_texture)
+    if ((this.splat as any).idx_buffer) this.deferred.setIdxBuffer((this.splat as any).idx_buffer)
     this.deferred.init(renderer)
   }
 

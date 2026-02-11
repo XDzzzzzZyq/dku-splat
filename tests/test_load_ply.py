@@ -7,12 +7,12 @@ import sys
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))  
 sys.path.insert(0, project_root)
 
-from src.scripts.load_ply import _load_ply, _pack_data, pack_half2, pack_half1
+from src.scripts.load_resource import _load_ply, _load_map, _pack_data, pack_half2, pack_half1
 from src.scripts._read_config import config
 
 class TestLoadPly(unittest.TestCase):
 
-    @patch('src.scripts.load_ply.PlyData.read')
+    @patch('src.scripts.load_resource.PlyData.read')
     def test_load_ply(self, mock_read):
         # Create mock vertex data as a structured array
         mock_data = np.array([
@@ -138,6 +138,18 @@ class TestLoadPly(unittest.TestCase):
         np.testing.assert_array_equal(tex_u32[0, 10], pack_half2(np.array([sh1[4]], dtype=np.float32), np.array([sh1[5]], dtype=np.float32))[0])
         np.testing.assert_array_equal(tex_u32[0, 11], pack_half2(np.array([sh1[6]], dtype=np.float32), np.array([sh1[7]], dtype=np.float32))[0])
         np.testing.assert_array_equal(tex_u32[0, 12], pack_half1(np.array([sh1[8]], dtype=np.float32))[0])
+
+    @patch('src.scripts.load_resource.np.load')
+    def test_load_map(self, mock_load):
+        fake_map = np.ones((6, 128, 128, 3), dtype=np.float32)
+        mock_load.return_value = {'arr_0': fake_map}
+
+        result = _load_map('test')
+
+        self.assertEqual(result.shape, (6, 128, 128, 3))
+        self.assertEqual(result.dtype, np.float32)
+        args, _ = mock_load.call_args
+        self.assertTrue(args[0].endswith(os.path.join('res', 'test', 'map1.npz')))
 
 if __name__ == '__main__':
     unittest.main()

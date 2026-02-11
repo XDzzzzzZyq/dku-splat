@@ -5,7 +5,7 @@ import { controls } from './scene/controls'
 // Auto-select splat implementation (WebGPU vs WebGL)
 import { Button3D } from './ui3d/Button3D'
 
-import {demoVertexCount, buf} from './scene/test/test_scene_cup'
+import {demoVertexCount, buf, map_buf} from './scene/test/test_scene_cup'
 
 // Log renderer capabilities where available (WebGPU renderer may not expose same fields)
 const render_capabilities =
@@ -48,6 +48,13 @@ try {
 */
 // TODO: Float Buffer <-> Texture Buffer abstraction
 splat_renderer.setBuffer(buf, demoVertexCount)
+try {
+  if (typeof (splat_renderer as any).setEnvironmentMap === 'function') {
+    ;(splat_renderer as any).setEnvironmentMap(map_buf)
+  }
+} catch (err) {
+  console.warn('Environment map setup failed:', err)
+}
 
 const vis_button = new Button3D()
 vis_button.position.set(1.0, 0.4, -0.5)
