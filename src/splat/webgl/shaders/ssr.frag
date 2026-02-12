@@ -9,8 +9,9 @@ uniform float uEnvMapEnabled;
 
 uniform mat4 uProj;
 uniform mat4 uInvProj;
-uniform mat4 uInvView;
+uniform mat4 uCamTrans;
 uniform vec3 uCameraPos;
+
 uniform vec2 uResolution;
 uniform float uMaxDistance;
 uniform float uStride;
@@ -37,14 +38,18 @@ float hash12(vec2 p) {
     return fract((p3.x + p3.y) * p3.z);
 }
 
-vec2 projectToUv(vec3 viewPos) {
-    vec4 clip = uProj * vec4(viewPos, 1.0);
+vec4 worldToView(vec3 worldPos) {
+    return uProj * vec4(worldPos, 1.0);
+}
+
+vec2 projectToUv(vec3 worldPos) {
+    vec4 clip = uProj * vec4(worldPos, 1.0);
     vec3 ndc = clip.xyz / max(clip.w, 1e-6);
     return ndc.xy * 0.5 + 0.5;
 }
 
 vec3 fresnelSchlick(float cosTheta, vec3 F0) {
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+    return mix(vec3(exp2((-5.55437*cosTheta-6.98314)*cosTheta)), vec3(1.0), F0);
 }
 
 vec3 sampleEnv(vec3 dir) {
@@ -56,7 +61,7 @@ vec3 getWorldRay(vec2 uv) {
     vec4 clip = vec4(ndc, 1.0, 1.0);
     vec4 view = uInvProj * clip;
     vec3 viewDir = normalize(view.xyz / max(view.w, 1e-6));
-    vec3 worldDir = normalize((uInvView * vec4(viewDir, 0.0)).xyz);
+    vec3 worldDir = normalize((uCamTrans * vec4(viewDir, 0.0)).xyz);
     return worldDir;
 }
 
@@ -84,7 +89,7 @@ void main() {
     vec3 hitColor = vec3(0.0);
 
     float jitter = (hash12(vUv * uResolution) - 0.5) * uJitter;
-    float t = max(uStride + jitter * uStride, 0.0);
+    float t = uStride;
 
     for (int i = 0; i < 512; ++i) {
         if (i >= uMaxSteps) break;
@@ -94,9 +99,11 @@ void main() {
         vec2 uv = projectToUv(rayPos);
         if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) break;
 
-        vec3 samplePos = resolveWeighted(tPos, uv).rgb;
-        float dz = samplePos.z - rayPos.z;
-        if (abs(dz) < uThickness) {
+        vec4 samplePos = resolveWeighted(tPos, uv);
+        vec4 viewRayPos = worldToView(rayPos);
+        vec4 viewSamplePos = worldToView(samplePos.xyz);
+        float dz = viewSamplePos.w - viewRayPos.w;
+        if (dz < uThickness && samplePos.a > 0.1) {
             hit = 1.0;
             hitColor = resolveWeighted(tColor, uv).rgb;
             break;
@@ -106,14 +113,12 @@ void main() {
     }
 
     float cosTheta = max(dot(n, -viewDir), 0.0);
-    vec3 F0 = mix(vec3(0.04), col.rgb, metallic);
+    vec3 F0 = mix(vec3(0.1), col.rgb, metallic);
     vec3 F = fresnelSchlick(cosTheta, F0);
 
-    float specWeight = (1.0 - roughness);
     vec3 specSource = mix(sampleEnv(reflDir), hitColor, hit);
-    vec3 specular = specSource * F * specWeight;
-    vec3 diffuse = col.rgb * (1.0 - F) * (1.0 - metallic);
+    vec3 reflection = specSource * F;
 
-    vec3 outColor = (diffuse + specular) * ao;
+    vec3 outColor = col.rgb + reflection;
     fragColor = vec4(mix(sampleEnv(viewDir), outColor, col.a), 1.0);
 }

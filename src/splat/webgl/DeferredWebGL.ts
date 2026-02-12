@@ -57,13 +57,13 @@ export class DeferredWebGL {
           uMode: { value: this.deferredMode },
           uProj: { value: new THREE.Matrix4() },
           uInvProj: { value: new THREE.Matrix4() },
-          uInvView: { value: new THREE.Matrix4() },
+          uCamTrans: { value: new THREE.Matrix4() },
           uCameraPos: { value: new THREE.Vector3() },
           uResolution: { value: new THREE.Vector2(1, 1) },
           uMaxDistance: { value: 10.0 },
-          uStride: { value: 1.0 },
-          uMaxSteps: { value: 64 },
-          uThickness: { value: 0.1 },
+          uStride: { value: 0.01 },
+          uMaxSteps: { value: 256 },
+          uThickness: { value: 0.001 },
           uJitter: { value: 0.5 },
         },
       })
@@ -204,7 +204,7 @@ export class DeferredWebGL {
 
       if (resolveMat.uniforms.uProj) resolveMat.uniforms.uProj.value.copy(viewProj)
       if (resolveMat.uniforms.uInvProj) resolveMat.uniforms.uInvProj.value.copy(camera.projectionMatrixInverse)
-      if (resolveMat.uniforms.uInvView) resolveMat.uniforms.uInvView.value.copy(camera.matrixWorld)
+      if (resolveMat.uniforms.uCamTrans) resolveMat.uniforms.uCamTrans.value.copy(camera.matrixWorld)
       if (resolveMat.uniforms.uCameraPos) resolveMat.uniforms.uCameraPos.value.copy(cameraPos)
       if (resolveMat.uniforms.uResolution) resolveMat.uniforms.uResolution.value.set(size.x, size.y)
     }
