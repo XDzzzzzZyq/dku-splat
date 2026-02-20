@@ -7,7 +7,7 @@ export class GaussianRendererWebGL {
   deferred: DeferredWebGL | null = null
   use_deferred: boolean = true
 
-  constructor(use_deferred = true) {
+  constructor(use_deferred = false) {
     this.use_deferred = use_deferred
     this.manager = new GaussianSplatManager()
   }

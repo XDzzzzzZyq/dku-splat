@@ -41,84 +41,70 @@ try {
   console.warn('Deferred init failed:', err)
 }
 
-// Create a small demo buffer (splat-style rows: 32 bytes per vertex)
-/*
-| pos : vec3(3 * 4) | opacity : float(4) | scl : vec3(3 * 4) | rot : vec3(3 * 4) | color : rgba(4) |
-*/
-// TODO: Float Buffer <-> Texture Buffer abstraction
-type SceneData = {
-  filename: string
-  buffer: ArrayBuffer
+type ChunkBounds = {
+  min: [number, number, number]
+  max: [number, number, number]
+}
+
+type ChunkData = {
+  id: string
+  file: string
+  bounds: ChunkBounds
   vertexCount: number
-  mapBuffer: ArrayBuffer | null
+  rawDataBase64: string
 }
 
-async function fetchSceneData(filename: string): Promise<SceneData> {
-  const res = await fetch(`http://localhost:8000/ply?filename=${encodeURIComponent(filename)}`)
-  if (!res.ok) throw new Error(`Failed to fetch scene ${filename}`)
-
-  const rawByte = await res.arrayBuffer()
-  const srcFloats = new Float32Array(rawByte)
-  const vertexCount = Math.floor(srcFloats.length / CONFIG.PACKED_FLOAT_PER_SPLAT)
-
-  const headerVertex = Number(res.headers.get('n-vertex'))
-  const headerChannels = Number(res.headers.get('n-channels'))
-  if (!Number.isNaN(headerVertex) && vertexCount !== headerVertex) {
-    throw new Error(`Point cloud vertex mismatch for ${filename}`)
-  }
-  if (!Number.isNaN(headerChannels) && CONFIG.PACKED_FLOAT_PER_SPLAT !== headerChannels) {
-    throw new Error(`Point cloud channel mismatch for ${filename}`)
-  }
-
-  let mapBuffer: ArrayBuffer | null = null
-  try {
-    const mapRes = await fetch(`http://localhost:8000/map?filename=${encodeURIComponent(filename)}`)
-    if (mapRes.ok) {
-      mapBuffer = await mapRes.arrayBuffer()
-    }
-  } catch {
-    mapBuffer = null
-  }
-
-  return {
-    filename,
-    buffer: srcFloats.buffer,
-    vertexCount,
-    mapBuffer,
-  }
+type ChunkResponse = {
+  scene: string
+  trunk_size: number
+  total_vertex: number
+  chunks: ChunkData[]
 }
 
-const sceneNames = ['classroom', 'coffee']
-const sceneDataList: SceneData[] = []
-for (const filename of sceneNames) {
-  try {
-    sceneDataList.push(await fetchSceneData(filename))
-  } catch (err) {
-    console.warn(`Scene load failed for ${filename}:`, err)
+function decodeBase64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i)
   }
+  return bytes.buffer
 }
 
-if (sceneDataList.length === 0) {
-  throw new Error('No Gaussian splat scenes loaded')
+const sceneName = 'classroom'
+const chunksRes = await fetch(`http://localhost:8000/chunks?filename=${encodeURIComponent(sceneName)}&include_data=true`)
+if (!chunksRes.ok) throw new Error(`Failed to fetch chunks for ${sceneName}`)
+const chunkPayload = (await chunksRes.json()) as ChunkResponse
+
+if (!Array.isArray(chunkPayload.chunks) || chunkPayload.chunks.length === 0) {
+  throw new Error('No classroom chunks loaded')
 }
 
-for (let i = 0; i < sceneDataList.length; i += 1) {
-  const data = sceneDataList[i]
+for (const chunk of chunkPayload.chunks) {
+  const buffer = decodeBase64ToArrayBuffer(chunk.rawDataBase64)
+
   if (typeof (splat_renderer as any).addSplatBuffer === 'function') {
-    const splat = (splat_renderer as any).addSplatBuffer(data.buffer, data.vertexCount)
+    const splat = (splat_renderer as any).addSplatBuffer(buffer, chunk.vertexCount)
     if (splat?.mesh) {
-      splat.mesh.position.x = i * 2.0
+      const center = new THREE.Vector3(
+        (chunk.bounds.min[0] + chunk.bounds.max[0]) * 0.5,
+        (chunk.bounds.min[1] + chunk.bounds.max[1]) * 0.5,
+        (chunk.bounds.min[2] + chunk.bounds.max[2]) * 0.5,
+      )
+      splat.mesh.userData.trunkCenter = center
     }
-  } else if (i === 0) {
-    splat_renderer.setBuffer(data.buffer, data.vertexCount)
+  } else {
+    // WebGPU fallback currently supports a single splat scene.
+    splat_renderer.setBuffer(buffer, chunk.vertexCount)
+    break
   }
 }
 
 try {
   if (typeof (splat_renderer as any).setEnvironmentMap === 'function') {
-    const firstMap = sceneDataList.find((entry) => entry.mapBuffer)?.mapBuffer ?? null
-    if (firstMap) {
-      ;(splat_renderer as any).setEnvironmentMap(firstMap)
+    const mapRes = await fetch(`http://localhost:8000/map?filename=${encodeURIComponent(sceneName)}`)
+    if (mapRes.ok) {
+      const mapBuffer = await mapRes.arrayBuffer()
+      ;(splat_renderer as any).setEnvironmentMap(mapBuffer)
     }
   }
 } catch (err) {
