@@ -172,12 +172,14 @@ fpsDiv.style.background = 'rgba(0, 0, 0, 0.5)'
 fpsDiv.style.padding = '5px'
 fpsDiv.style.fontFamily = 'monospace'
 fpsDiv.style.pointerEvents = 'none'
-fpsDiv.innerText = "Press 'B' to toggle Benchmark Mode"
+fpsDiv.innerText = "Press 'B' to toggle Benchmark Mode\nPress 'A' for fixed pose\nPress 'C' to log pose"
 document.body.appendChild(fpsDiv)
 
 let isBenchmarking = false
 let benchmarkStartTime = 0
 let frameCount = 0
+const fixedPosePosition = new THREE.Vector3(2.4396, 0.2282, 1.0201)
+const fixedPoseTarget = new THREE.Vector3(0.4078, -0.1714, -0.5057)
 
 window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyB') {
@@ -192,8 +194,24 @@ window.addEventListener('keydown', (e) => {
       console.log('Benchmark stopped')
       controls.autoRotate = false
       frameCount = 0
-      fpsDiv.innerText = "Press 'B' to toggle Benchmark Mode"
+      fpsDiv.innerText = "Press 'B' to toggle Benchmark Mode\nPress 'A' for fixed pose\nPress 'C' to log pose"
     }
+  } else if (e.code === 'KeyA') {
+    isBenchmarking = false
+    controls.autoRotate = false
+    frameCount = 0
+
+    camera.position.copy(fixedPosePosition)
+    controls.target.copy(fixedPoseTarget)
+    camera.lookAt(fixedPoseTarget)
+    controls.update()
+
+    fpsDiv.innerText = "Fixed pose applied\nPress 'B' to toggle Benchmark Mode\nPress 'A' for fixed pose\nPress 'C' to log pose"
+  } else if (e.code === 'KeyC') {
+    const pos = camera.position
+    const tar = controls.target
+    console.log(`Camera position: (${pos.x.toFixed(4)}, ${pos.y.toFixed(4)}, ${pos.z.toFixed(4)})`)
+    console.log(`Camera target:   (${tar.x.toFixed(4)}, ${tar.y.toFixed(4)}, ${tar.z.toFixed(4)})`)
   }
 })
 

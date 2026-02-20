@@ -135,8 +135,8 @@ export class GaussianSplatWebGL {
     this.forwardMaterial.uniforms.focal.value.set(fx, fy, fz)
     // forward-only: update forward material uniforms
     if (!this.worker) return
-    if (this._lastProjection.every((v, i) => Math.abs(v - projectionMatrix[i]) < 1e-2) &&
-        this._lastView.every((v, i) => Math.abs(v - viewMatrix[i]) < 1e-2)) {
+    if (this._lastProjection.every((v, i) => Math.abs(v - projectionMatrix[i]) < CONFIG.SORTING_EPSILON) &&
+        this._lastView.every((v, i) => Math.abs(v - viewMatrix[i]) < CONFIG.SORTING_EPSILON)) {
       return
     }
     this._lastView.set(viewMatrix)
