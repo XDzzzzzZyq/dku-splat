@@ -2,6 +2,7 @@
 canteen/*
 car/*
 pavilion/*
+classroom/*
 
 // packed results
 *.npz

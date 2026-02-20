@@ -144,8 +144,8 @@ function createWorker(self) {
         } else if (e.data.view) {
             // Update the view, sort and chunk the splats
             // TODO: better lazy update
-            if (e.data.view.every((v, i) => Math.abs(v - _lastView[i]) < 1e-1) &&
-                e.data.projection && e.data.projection.every((v, i) => Math.abs(v - _lastProjection[i]) < 1e-1)) return;
+            // if (e.data.view.every((v, i) => Math.abs(v - _lastView[i]) < 1e-2) &&
+            //     e.data.projection && e.data.projection.every((v, i) => Math.abs(v - _lastProjection[i]) < 1e-2)) return;
 
             console.log("Worker received view");
             const projection = e.data.projection || _lastProjection;
