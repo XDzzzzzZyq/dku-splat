@@ -98,8 +98,52 @@ window.addEventListener('resize', () => {
     }
 });
 
+const fpsDiv = document.createElement('div')
+fpsDiv.style.position = 'absolute'
+fpsDiv.style.top = '10px'
+fpsDiv.style.left = '10px'
+fpsDiv.style.color = 'white'
+fpsDiv.style.background = 'rgba(0, 0, 0, 0.5)'
+fpsDiv.style.padding = '5px'
+fpsDiv.style.fontFamily = 'monospace'
+fpsDiv.style.pointerEvents = 'none'
+fpsDiv.innerText = "Press 'B' to toggle Benchmark Mode"
+document.body.appendChild(fpsDiv)
+
+let isBenchmarking = false
+let benchmarkStartTime = 0
+let frameCount = 0
+
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyB') {
+    isBenchmarking = !isBenchmarking
+    if (isBenchmarking) {
+      console.log('Benchmark started')
+      controls.autoRotate = true
+      controls.autoRotateSpeed = 2.0
+      benchmarkStartTime = performance.now()
+      frameCount = 0
+    } else {
+      console.log('Benchmark stopped')
+      controls.autoRotate = false
+      frameCount = 0
+      fpsDiv.innerText = "Press 'B' to toggle Benchmark Mode"
+    }
+  }
+})
+
 function animate() {
   requestAnimationFrame(animate)
+
+  if (isBenchmarking) {
+    frameCount++
+    const elapsed = (performance.now() - benchmarkStartTime) / 1000
+    if (elapsed > 0) {
+      const avgFps = (frameCount / elapsed).toFixed(1)
+      fpsDiv.innerText = `Benchmark: ON\nTime: ${elapsed.toFixed(1)}s\nAvg FPS: ${avgFps}`
+    }
+  }
+
   controls.update()
   // update splat shader uniforms with current camera
   // three.js camera matrices
