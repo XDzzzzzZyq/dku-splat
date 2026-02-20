@@ -4,8 +4,7 @@ import { camera } from './scene/camera'
 import { controls } from './scene/controls'
 // Auto-select splat implementation (WebGPU vs WebGL)
 import { Button3D } from './ui3d/Button3D'
-
-import { demoVertexCount, buf, map_buf } from './scene/main/pavilion_scene'
+import { CONFIG } from './config'
 
 // Log renderer capabilities where available (WebGPU renderer may not expose same fields)
 const render_capabilities =
@@ -47,10 +46,80 @@ try {
 | pos : vec3(3 * 4) | opacity : float(4) | scl : vec3(3 * 4) | rot : vec3(3 * 4) | color : rgba(4) |
 */
 // TODO: Float Buffer <-> Texture Buffer abstraction
-splat_renderer.setBuffer(buf, demoVertexCount)
+type SceneData = {
+  filename: string
+  buffer: ArrayBuffer
+  vertexCount: number
+  mapBuffer: ArrayBuffer | null
+}
+
+async function fetchSceneData(filename: string): Promise<SceneData> {
+  const res = await fetch(`http://localhost:8000/ply?filename=${encodeURIComponent(filename)}`)
+  if (!res.ok) throw new Error(`Failed to fetch scene ${filename}`)
+
+  const rawByte = await res.arrayBuffer()
+  const srcFloats = new Float32Array(rawByte)
+  const vertexCount = Math.floor(srcFloats.length / CONFIG.PACKED_FLOAT_PER_SPLAT)
+
+  const headerVertex = Number(res.headers.get('n-vertex'))
+  const headerChannels = Number(res.headers.get('n-channels'))
+  if (!Number.isNaN(headerVertex) && vertexCount !== headerVertex) {
+    throw new Error(`Point cloud vertex mismatch for ${filename}`)
+  }
+  if (!Number.isNaN(headerChannels) && CONFIG.PACKED_FLOAT_PER_SPLAT !== headerChannels) {
+    throw new Error(`Point cloud channel mismatch for ${filename}`)
+  }
+
+  let mapBuffer: ArrayBuffer | null = null
+  try {
+    const mapRes = await fetch(`http://localhost:8000/map?filename=${encodeURIComponent(filename)}`)
+    if (mapRes.ok) {
+      mapBuffer = await mapRes.arrayBuffer()
+    }
+  } catch {
+    mapBuffer = null
+  }
+
+  return {
+    filename,
+    buffer: srcFloats.buffer,
+    vertexCount,
+    mapBuffer,
+  }
+}
+
+const sceneNames = ['classroom', 'coffee']
+const sceneDataList: SceneData[] = []
+for (const filename of sceneNames) {
+  try {
+    sceneDataList.push(await fetchSceneData(filename))
+  } catch (err) {
+    console.warn(`Scene load failed for ${filename}:`, err)
+  }
+}
+
+if (sceneDataList.length === 0) {
+  throw new Error('No Gaussian splat scenes loaded')
+}
+
+for (let i = 0; i < sceneDataList.length; i += 1) {
+  const data = sceneDataList[i]
+  if (typeof (splat_renderer as any).addSplatBuffer === 'function') {
+    const splat = (splat_renderer as any).addSplatBuffer(data.buffer, data.vertexCount)
+    if (splat?.mesh) {
+      splat.mesh.position.x = i * 2.0
+    }
+  } else if (i === 0) {
+    splat_renderer.setBuffer(data.buffer, data.vertexCount)
+  }
+}
+
 try {
   if (typeof (splat_renderer as any).setEnvironmentMap === 'function') {
-    ;(splat_renderer as any).setEnvironmentMap(map_buf)
+    const firstMap = sceneDataList.find((entry) => entry.mapBuffer)?.mapBuffer ?? null
+    if (firstMap) {
+      ;(splat_renderer as any).setEnvironmentMap(firstMap)
+    }
   }
 } catch (err) {
   console.warn('Environment map setup failed:', err)

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import deferredVert from './shaders/deferred.vert?raw'
 import deferredFrag from './shaders/ssr.frag?raw'
+import type { GBufferEntry } from './GaussianSplatManager'
 
 export class DeferredWebGL {
   gbufferMaterial: THREE.RawShaderMaterial | null = null
@@ -9,8 +10,6 @@ export class DeferredWebGL {
   resolveCamera: THREE.OrthographicCamera | null = null
   resolveMesh: THREE.Mesh | null = null
   deferredMode = 2
-  data_texture: THREE.DataTexture | null = null
-  idx_buffer: THREE.DataTexture | null = null
   env_texture: THREE.CubeTexture | null = null
 
   constructor() {
@@ -130,17 +129,6 @@ export class DeferredWebGL {
     if (resolveMat) resolveMat.uniforms.uMode.value = this.deferredMode
   }
 
-  setDataTexture(tex: THREE.DataTexture | null) {
-    this.data_texture = tex
-    // Deferred does not modify materials directly; the splat material will
-    // be created/updated by GaussianSplatWebGL and provided at render time.
-  }
-
-  setIdxBuffer(tex: THREE.DataTexture | null) {
-    this.idx_buffer = tex
-    // stored for wiring into the provided gbuffer material during render
-  }
-
   setEnvironmentMap(buffer: ArrayBuffer) {
     const floats = new Float32Array(buffer)
     const facePixels = floats.length / (6 * 4) // 6 faces, RGBA
@@ -185,9 +173,9 @@ export class DeferredWebGL {
     renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
     camera: THREE.PerspectiveCamera,
-    gbufferMaterial: THREE.RawShaderMaterial | null,
+    gbufferEntries: GBufferEntry[],
   ) {
-    if (!this.gbufferTarget || !this.resolveScene || !this.resolveCamera || !gbufferMaterial) return
+    if (!this.gbufferTarget || !this.resolveScene || !this.resolveCamera || gbufferEntries.length === 0) return
 
     const size = new THREE.Vector2()
     renderer.getDrawingBufferSize(size)
@@ -209,20 +197,6 @@ export class DeferredWebGL {
       if (resolveMat.uniforms.uResolution) resolveMat.uniforms.uResolution.value.set(size.x, size.y)
     }
 
-    // Wire stored textures/uniforms into the provided gbuffer material.
-    if (gbufferMaterial.uniforms) {
-      
-      const viewMatrix = camera.matrixWorldInverse.elements as unknown as Float32Array
-      const projectionMatrix = camera.projectionMatrix.elements as unknown as Float32Array
-      const fx = camera.aspect
-
-      if (this.data_texture && 'u_data' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.u_data.value = this.data_texture
-      if (this.idx_buffer && 'idx_buffer' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.idx_buffer.value = this.idx_buffer
-      if (viewMatrix && 'view' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.view.value.fromArray(viewMatrix)
-      if (projectionMatrix && 'projection' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.projection.value.fromArray(projectionMatrix)
-      if (typeof fx === 'number' && 'focal' in gbufferMaterial.uniforms) gbufferMaterial.uniforms.focal.value.set(fx, 1.0, 1.0)
-    }
-
     const prevTarget = renderer.getRenderTarget()
     const prevClear = new THREE.Color()
     renderer.getClearColor(prevClear)
@@ -230,19 +204,19 @@ export class DeferredWebGL {
 
     renderer.setClearColor(0x000000, 0)
 
-    // Render into MRT using the supplied material
-    const firstMesh = (scene.children.find((c: any) => c.isMesh) as any) || null
-    if (firstMesh) {
-      const orig = firstMesh.material
-      firstMesh.material = gbufferMaterial
-      renderer.setRenderTarget(this.gbufferTarget)
-      renderer.clear(true, false, false)
-      renderer.render(scene, camera)
-      firstMesh.material = orig
-    } else {
-      renderer.setRenderTarget(this.gbufferTarget)
-      renderer.clear(true, false, false)
-      renderer.render(scene, camera)
+    // Render into MRT using per-splat G-buffer materials
+    const swaps: Array<{ mesh: THREE.Mesh; original: THREE.Material | THREE.Material[] }> = []
+    for (const entry of gbufferEntries) {
+      swaps.push({ mesh: entry.mesh, original: entry.mesh.material })
+      entry.mesh.material = entry.material
+    }
+
+    renderer.setRenderTarget(this.gbufferTarget)
+    renderer.clear(true, false, false)
+    renderer.render(scene, camera)
+
+    for (const swap of swaps) {
+      swap.mesh.material = swap.original
     }
 
     renderer.setRenderTarget(null)

@@ -1,6 +1,6 @@
 import { CONFIG } from "../../config";
 
-const filename = "pavilion";
+const filename = "classroom";
 const res = await fetch(`http://localhost:8000/ply?filename=${encodeURIComponent(filename)}`);
 const raw_byte = await res.arrayBuffer();
 const srcFloats = new Float32Array(raw_byte);

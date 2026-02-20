@@ -1,23 +1,27 @@
 import * as THREE from 'three'
-import { GaussianSplatWebGL } from './GaussianSplatWebGL'
+import { GaussianSplatManager } from './GaussianSplatManager'
 import { DeferredWebGL } from './DeferredWebGL'
 
 export class GaussianRendererWebGL {
-  splat: GaussianSplatWebGL
+  manager: GaussianSplatManager
   deferred: DeferredWebGL | null = null
   use_deferred: boolean = true
 
   constructor(use_deferred = true) {
     this.use_deferred = use_deferred
-    this.splat = new GaussianSplatWebGL()
+    this.manager = new GaussianSplatManager()
   }
 
   get mesh() {
-    return this.splat.mesh
+    return this.manager.mesh
   }
 
   setBuffer(buffer: ArrayBuffer, vertexCount: number) {
-    this.splat.setBuffer(buffer, vertexCount)
+    this.manager.setBuffer(buffer, vertexCount)
+  }
+
+  addSplatBuffer(buffer: ArrayBuffer, vertexCount: number) {
+    return this.manager.addSplatBuffer(buffer, vertexCount)
   }
 
   setEnvironmentMap(buffer: ArrayBuffer) {
@@ -26,7 +30,7 @@ export class GaussianRendererWebGL {
   }
 
   toggleVisible() {
-    this.splat.toggleVisible()
+    this.manager.toggleVisible()
   }
 
   setDeferredMode() {
@@ -42,8 +46,6 @@ export class GaussianRendererWebGL {
     if (!this.deferred) {
       this.deferred = new DeferredWebGL()
     }
-    if ((this.splat as any).data_texture) this.deferred.setDataTexture((this.splat as any).data_texture)
-    if ((this.splat as any).idx_buffer) this.deferred.setIdxBuffer((this.splat as any).idx_buffer)
     this.deferred.init(renderer)
   }
 
@@ -52,16 +54,13 @@ export class GaussianRendererWebGL {
   }
 
   updateUniforms(viewMatrix: Float32Array, projectionMatrix: Float32Array, fx: number, fy: number, fz: number) {
-    this.splat.updateUniforms(viewMatrix, projectionMatrix, fx, fy, fz)
+    this.manager.updateUniforms(viewMatrix, projectionMatrix, fx, fy, fz)
   }
 
   renderDeferred(renderer: THREE.WebGLRenderer, splatScene: THREE.Scene, camera: THREE.PerspectiveCamera, mainScene?: THREE.Scene) {
     if (this.use_deferred && this.deferred) {
-      // create a gbuffer material from the splat implementation so it can
-      // compile with the DEFERRED_GBUFFER define and carry the splat data
-      const gbufferMat = (this.splat as any).createGBufferMaterial?.() ?? null
-
-      this.deferred.render(renderer, splatScene, camera, gbufferMat)
+      const gbufferEntries = this.manager.getGBufferEntries()
+      this.deferred.render(renderer, splatScene, camera, gbufferEntries)
       if (mainScene) {
         const prevAutoClear = (renderer as any).autoClear
         ;(renderer as any).autoClear = false
@@ -81,6 +80,6 @@ export class GaussianRendererWebGL {
   }
 
   renderOverlay() {
-    this.splat.renderOverlay()
+    this.manager.renderOverlay()
   }
 }
