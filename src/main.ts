@@ -71,32 +71,42 @@ function decodeBase64ToArrayBuffer(base64: string): ArrayBuffer {
 }
 
 const sceneName = 'classroom'
-const chunksRes = await fetch(`http://localhost:8000/chunks?filename=${encodeURIComponent(sceneName)}&include_data=true`)
-if (!chunksRes.ok) throw new Error(`Failed to fetch chunks for ${sceneName}`)
-const chunkPayload = (await chunksRes.json()) as ChunkResponse
+if (CONFIG.USE_TRUNK_BASED_RENDERING) {
+  const chunksRes = await fetch(`http://localhost:8000/chunks?filename=${encodeURIComponent(sceneName)}&include_data=true`)
+  if (!chunksRes.ok) throw new Error(`Failed to fetch chunks for ${sceneName}`)
+  const chunkPayload = (await chunksRes.json()) as ChunkResponse
 
-if (!Array.isArray(chunkPayload.chunks) || chunkPayload.chunks.length === 0) {
-  throw new Error('No classroom chunks loaded')
-}
-
-for (const chunk of chunkPayload.chunks) {
-  const buffer = decodeBase64ToArrayBuffer(chunk.rawDataBase64)
-
-  if (typeof (splat_renderer as any).addSplatBuffer === 'function') {
-    const splat = (splat_renderer as any).addSplatBuffer(buffer, chunk.vertexCount)
-    if (splat?.mesh) {
-      const center = new THREE.Vector3(
-        (chunk.bounds.min[0] + chunk.bounds.max[0]) * 0.5,
-        (chunk.bounds.min[1] + chunk.bounds.max[1]) * 0.5,
-        (chunk.bounds.min[2] + chunk.bounds.max[2]) * 0.5,
-      )
-      splat.mesh.userData.trunkCenter = center
-    }
-  } else {
-    // WebGPU fallback currently supports a single splat scene.
-    splat_renderer.setBuffer(buffer, chunk.vertexCount)
-    break
+  if (!Array.isArray(chunkPayload.chunks) || chunkPayload.chunks.length === 0) {
+    throw new Error('No classroom chunks loaded')
   }
+
+  for (const chunk of chunkPayload.chunks) {
+    const buffer = decodeBase64ToArrayBuffer(chunk.rawDataBase64)
+
+    if (typeof (splat_renderer as any).addSplatBuffer === 'function') {
+      const splat = (splat_renderer as any).addSplatBuffer(buffer, chunk.vertexCount)
+      if (splat?.mesh) {
+        const center = new THREE.Vector3(
+          (chunk.bounds.min[0] + chunk.bounds.max[0]) * 0.5,
+          (chunk.bounds.min[1] + chunk.bounds.max[1]) * 0.5,
+          (chunk.bounds.min[2] + chunk.bounds.max[2]) * 0.5,
+        )
+        splat.mesh.userData.trunkCenter = center
+      }
+    } else {
+      // WebGPU fallback currently supports a single splat scene.
+      splat_renderer.setBuffer(buffer, chunk.vertexCount)
+      break
+    }
+  }
+} else {
+  const sceneRes = await fetch(`http://localhost:8000/ply?filename=${encodeURIComponent(sceneName)}`)
+  if (!sceneRes.ok) throw new Error(`Failed to fetch scene ${sceneName}`)
+
+  const rawByte = await sceneRes.arrayBuffer()
+  const srcFloats = new Float32Array(rawByte)
+  const vertexCount = Math.floor(srcFloats.length / CONFIG.PACKED_FLOAT_PER_SPLAT)
+  splat_renderer.setBuffer(srcFloats.buffer, vertexCount)
 }
 
 try {

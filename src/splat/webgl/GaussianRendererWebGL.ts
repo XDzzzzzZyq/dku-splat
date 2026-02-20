@@ -1,14 +1,14 @@
 import * as THREE from 'three'
 import { GaussianSplatManager } from './GaussianSplatManager'
 import { DeferredWebGL } from './DeferredWebGL'
+import { CONFIG } from "../../config.js"
 
 export class GaussianRendererWebGL {
   manager: GaussianSplatManager
   deferred: DeferredWebGL | null = null
-  use_deferred: boolean = true
+  use_deferred: boolean = CONFIG.USE_DEFERRED_RENDERING
 
-  constructor(use_deferred = false) {
-    this.use_deferred = use_deferred
+  constructor() {
     this.manager = new GaussianSplatManager()
   }
 
