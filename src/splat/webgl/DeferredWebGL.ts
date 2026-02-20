@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import deferredVert from './shaders/deferred.vert?raw'
-import deferredFrag from './shaders/ssr.frag?raw'
+import deferredFrag from './shaders/deferred.frag?raw'
 import type { GBufferEntry } from './GaussianSplatManager'
 
 export class DeferredWebGL {

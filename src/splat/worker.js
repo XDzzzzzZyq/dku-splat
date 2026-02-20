@@ -6,9 +6,6 @@ function createWorker(self) {
     let buffer = null;
     let vertexCount = 0;
 
-    var _lastView = new Float32Array(16);
-    var _lastProjection = new Float32Array(16);
-
     function multiplyMat4(out, a, b) {
         // column-major out = a * b
         const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
@@ -143,16 +140,7 @@ function createWorker(self) {
 
         } else if (e.data.view) {
             // Update the view, sort and chunk the splats
-            // TODO: better lazy update
-            // if (e.data.view.every((v, i) => Math.abs(v - _lastView[i]) < 1e-2) &&
-            //     e.data.projection && e.data.projection.every((v, i) => Math.abs(v - _lastProjection[i]) < 1e-2)) return;
-
-            console.log("Worker received view");
-            const projection = e.data.projection || _lastProjection;
-            runSort(e.data.view, projection);
-
-            _lastView = e.data.view;
-            if (e.data.projection) _lastProjection = e.data.projection;
+            runSort(e.data.view, e.data.projection);
         }
     };
 }

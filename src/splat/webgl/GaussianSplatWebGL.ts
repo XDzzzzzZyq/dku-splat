@@ -12,6 +12,10 @@ export class GaussianSplatWebGL {
   idx_buffer: THREE.DataTexture | null = null
   vertexCount = 0
 
+  // For lazy update
+  _lastView = new Float32Array(16);
+  _lastProjection = new Float32Array(16);
+
   constructor(count = 0) {
     const quad = new Float32Array([
       -1, -1, 0,
@@ -130,6 +134,12 @@ export class GaussianSplatWebGL {
     this.forwardMaterial.uniforms.focal.value.set(fx, fy, fz)
     // forward-only: update forward material uniforms
     if (!this.worker) return
+    if (this._lastProjection.every((v, i) => Math.abs(v - projectionMatrix[i]) < 1e-2) &&
+        this._lastView.every((v, i) => Math.abs(v - viewMatrix[i]) < 1e-2)) {
+      return
+    }
+    this._lastView.set(viewMatrix)
+    this._lastProjection.set(projectionMatrix)
     this.worker.postMessage({ view: viewMatrix, projection: projectionMatrix })
   }
 

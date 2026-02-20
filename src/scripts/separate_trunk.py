@@ -316,4 +316,5 @@ def main():
     print(f"Segmented into {len(chunks_meta)} chunks. Saved to {output_dir}")
 
 if __name__ == "__main__":
+    # Example usage: python src/scripts/separate_trunk.py --filename classroom --trunk_size 32.0
     main()
