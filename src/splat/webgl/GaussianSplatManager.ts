@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GaussianSplatWebGL } from './GaussianSplatWebGL'
+import { CONFIG } from '../../config'
 
 export type GBufferEntry = {
   mesh: THREE.Mesh
@@ -40,8 +41,7 @@ export class GaussianSplatManager {
       splat.updateUniforms(viewMatrix, projectionMatrix, fx, fy, fz)
     }
 
-    const ordered = this.splats
-      .map((splat) => {
+    const entries = this.splats.map((splat) => {
         const trunkCenter = splat.mesh.userData.trunkCenter as THREE.Vector3 | undefined
         const worldCenter = trunkCenter ?? new THREE.Vector3(
           splat.mesh.matrixWorld.elements[12],
@@ -55,10 +55,24 @@ export class GaussianSplatManager {
           viewMatrix[10] * worldCenter.z +
           viewMatrix[14]
 
-        return { splat, viewZ }
+        return { splat, viewZ, isTrunk: !!trunkCenter }
       })
+
+    const trunkEntries = entries
+      .filter((entry) => entry.isTrunk)
+      .sort((a, b) => b.viewZ - a.viewZ)
+
+    if (trunkEntries.length > 0) {
+      const maxVisible = Math.max(1, CONFIG.MAX_VISIBLE_TRUNKS)
+      for (let i = 0; i < trunkEntries.length; i += 1) {
+        trunkEntries[i].splat.mesh.visible = i < maxVisible
+      }
+    }
+
+    const ordered = entries
+      .filter((entry) => entry.splat.mesh.visible)
       // Near-to-far ordering: larger viewZ is nearer for points in front of the camera.
-      .sort((a, b) => a.viewZ - b.viewZ)
+      .sort((a, b) => b.viewZ - a.viewZ)
 
     for (let i = 0; i < ordered.length; i += 1) {
       ordered[i].splat.mesh.renderOrder = i

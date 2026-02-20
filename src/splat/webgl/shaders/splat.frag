@@ -1,5 +1,7 @@
 precision highp float;
 
+uniform float u_alphaEpsilon;
+
 in vec4 vColor;
 in vec2 vPosition;
 in float scale;
@@ -23,11 +25,10 @@ out vec4 fragColor;
 
 void main () {
     float A = -dot(vPosition, vPosition) * scale;
-
-    if (A < -4.0) discard;
     float B = exp(A);
     // Gaussian weight (also used as alpha). Keep this consistent across all channels.
     float w = vColor.a * B;
+    if (w <= u_alphaEpsilon) discard;
 
 #ifdef DEFERRED_GBUFFER
     // Weighted blended accumulation (order-independent): store sum(value * w) and sum(w).

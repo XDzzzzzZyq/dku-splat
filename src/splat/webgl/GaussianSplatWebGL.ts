@@ -43,6 +43,7 @@ export class GaussianSplatWebGL {
         projection: { value: new THREE.Matrix4() },
         view: { value: new THREE.Matrix4() },
         focal: { value: new THREE.Vector3(1, 1, 1) },
+        u_alphaEpsilon: { value: CONFIG.ALPHA_DISCARD_EPSILON },
       }
     })
 

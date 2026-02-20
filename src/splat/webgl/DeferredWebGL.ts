@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import deferredVert from './shaders/deferred.vert?raw'
 import deferredFrag from './shaders/deferred.frag?raw'
 import type { GBufferEntry } from './GaussianSplatManager'
+import { CONFIG } from '../../config'
 
 export class DeferredWebGL {
   gbufferMaterial: THREE.RawShaderMaterial | null = null

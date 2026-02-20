@@ -124,7 +124,6 @@ void main()
         center.x + maxRadius < -1.0 || center.x - maxRadius > 1.0 ||
         center.y + maxRadius < -1.0 || center.y - maxRadius > 1.0 ||
         ndc_z < -1.0 || ndc_z > 1.0) {
-        gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
         return;
     }
 
