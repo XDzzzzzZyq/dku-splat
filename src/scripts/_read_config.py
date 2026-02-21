@@ -17,6 +17,12 @@ text = re.sub(r"//.*", "", text)
 # Remove trailing commas before }
 text = re.sub(r",\s*}", "}", text)
 
+# Remove trailing commas before ]
+text = re.sub(r",\s*]", "]", text)
+
+# Convert single-quoted string literals to double-quoted JSON strings
+text = re.sub(r"'([^'\\]*(?:\\.[^'\\]*)*)'", r'"\1"', text)
+
 # Quote keys to make valid JSON
 text = re.sub(r"(\w+)\s*:", r'"\1":', text)
 

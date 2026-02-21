@@ -24,6 +24,14 @@ export class GaussianRendererWebGL {
     return this.manager.addSplatBuffer(buffer, vertexCount)
   }
 
+  initChunkStreaming(sceneName: string, serverBaseUrl?: string) {
+    return this.manager.initChunkStreaming(sceneName, serverBaseUrl)
+  }
+
+  updateChunkStreaming(camera: THREE.PerspectiveCamera) {
+    this.manager.updateChunkStreaming(camera)
+  }
+
   setEnvironmentMap(buffer: ArrayBuffer) {
     if (!this.deferred) this.deferred = new DeferredWebGL()
     this.deferred.setEnvironmentMap(buffer)

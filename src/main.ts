@@ -41,67 +41,15 @@ try {
   console.warn('Deferred init failed:', err)
 }
 
-type ChunkBounds = {
-  min: [number, number, number]
-  max: [number, number, number]
-}
-
-type ChunkData = {
-  id: string
-  file: string
-  bounds: ChunkBounds
-  vertexCount: number
-  rawDataBase64: string
-}
-
-type ChunkResponse = {
-  scene: string
-  trunk_size: number
-  total_vertex: number
-  chunks: ChunkData[]
-}
-
-function decodeBase64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return bytes.buffer
-}
-
-const sceneName = 'classroom'
 if (CONFIG.USE_TRUNK_BASED_RENDERING) {
-  const chunksRes = await fetch(`http://localhost:8000/chunks?filename=${encodeURIComponent(sceneName)}&include_data=true`)
-  if (!chunksRes.ok) throw new Error(`Failed to fetch chunks for ${sceneName}`)
-  const chunkPayload = (await chunksRes.json()) as ChunkResponse
-
-  if (!Array.isArray(chunkPayload.chunks) || chunkPayload.chunks.length === 0) {
-    throw new Error('No classroom chunks loaded')
-  }
-
-  for (const chunk of chunkPayload.chunks) {
-    const buffer = decodeBase64ToArrayBuffer(chunk.rawDataBase64)
-
-    if (typeof (splat_renderer as any).addSplatBuffer === 'function') {
-      const splat = (splat_renderer as any).addSplatBuffer(buffer, chunk.vertexCount)
-      if (splat?.mesh) {
-        const center = new THREE.Vector3(
-          (chunk.bounds.min[0] + chunk.bounds.max[0]) * 0.5,
-          (chunk.bounds.min[1] + chunk.bounds.max[1]) * 0.5,
-          (chunk.bounds.min[2] + chunk.bounds.max[2]) * 0.5,
-        )
-        splat.mesh.userData.trunkCenter = center
-      }
-    } else {
-      // WebGPU fallback currently supports a single splat scene.
-      splat_renderer.setBuffer(buffer, chunk.vertexCount)
-      break
-    }
+  if (typeof (splat_renderer as any).initChunkStreaming === 'function') {
+    await (splat_renderer as any).initChunkStreaming(CONFIG.SCENE)
+  } else {
+    throw new Error('Trunk streaming is not supported by the active renderer')
   }
 } else {
-  const sceneRes = await fetch(`http://localhost:8000/ply?filename=${encodeURIComponent(sceneName)}`)
-  if (!sceneRes.ok) throw new Error(`Failed to fetch scene ${sceneName}`)
+  const sceneRes = await fetch(`http://localhost:8000/ply?filename=${encodeURIComponent(CONFIG.SCENE)}`)
+  if (!sceneRes.ok) throw new Error(`Failed to fetch scene ${CONFIG.SCENE}`)
 
   const rawByte = await sceneRes.arrayBuffer()
   const srcFloats = new Float32Array(rawByte)
@@ -111,7 +59,7 @@ if (CONFIG.USE_TRUNK_BASED_RENDERING) {
 
 try {
   if (typeof (splat_renderer as any).setEnvironmentMap === 'function') {
-    const mapRes = await fetch(`http://localhost:8000/map?filename=${encodeURIComponent(sceneName)}`)
+    const mapRes = await fetch(`http://localhost:8000/map?filename=${encodeURIComponent(CONFIG.SCENE)}`)
     if (mapRes.ok) {
       const mapBuffer = await mapRes.arrayBuffer()
       ;(splat_renderer as any).setEnvironmentMap(mapBuffer)
@@ -217,6 +165,10 @@ window.addEventListener('keydown', (e) => {
 
 function animate() {
   requestAnimationFrame(animate)
+
+  if (CONFIG.USE_TRUNK_BASED_RENDERING && typeof (splat_renderer as any).updateChunkStreaming === 'function') {
+    ;(splat_renderer as any).updateChunkStreaming(camera)
+  }
 
   if (isBenchmarking) {
     frameCount++

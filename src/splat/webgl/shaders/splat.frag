@@ -24,7 +24,7 @@ out vec4 fragColor;
 #endif
 
 void main () {
-    float A = -dot(vPosition, vPosition) * scale;
+    float A = -dot(vPosition, vPosition) * scale; if (A < -4.0) discard;
     float B = exp(A);
     // Gaussian weight (also used as alpha). Keep this consistent across all channels.
     float w = vColor.a * B;

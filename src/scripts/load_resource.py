@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Query
 from fastapi.responses import Response, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import HTTPException
 
 import numpy as np
 import pandas as pd
@@ -8,7 +9,6 @@ from scipy.special import expit
 from plyfile import PlyData
 import os
 import json
-import base64
 
 # -----------------------------------------------------------------------------
 # FastAPI setup
@@ -411,14 +411,12 @@ def load_map(filename: str = Query(...)):
         })
 
 
-@app.get("/chunks")
-def load_chunks(
+@app.get("/get_chunk_meta")
+def get_chunk_meta(
     filename: str = Query(...),
-    include_data: bool = Query(True),
 ):
     metadata = _load_chunks_metadata(filename)
     chunks = metadata.get("chunks", [])
-    chunks_dir = os.path.abspath(f"res/{filename}/chunks")
 
     chunk_entries = []
     for chunk in chunks:
@@ -429,12 +427,6 @@ def load_chunks(
             "vertexCount": int(chunk["vertexCount"]),
         }
 
-        if include_data:
-            chunk_path = os.path.join(chunks_dir, chunk["file"])
-            npz = np.load(chunk_path)
-            raw_data = npz["raw_data"]
-            entry["rawDataBase64"] = base64.b64encode(raw_data.tobytes()).decode("ascii")
-
         chunk_entries.append(entry)
 
     return JSONResponse({
@@ -443,6 +435,40 @@ def load_chunks(
         "total_vertex": metadata.get("total_vertex"),
         "chunks": chunk_entries,
     })
+
+
+@app.get("/load_chunk")
+def load_chunk(
+    filename: str = Query(...),
+    chunk_id: str = Query(...),
+):
+    metadata = _load_chunks_metadata(filename)
+    chunks = metadata.get("chunks", [])
+
+    chunk_meta = next((chunk for chunk in chunks if chunk.get("id") == chunk_id), None)
+    if chunk_meta is None:
+        raise HTTPException(status_code=404, detail=f"Chunk not found: {chunk_id}")
+
+    chunk_file = chunk_meta.get("file")
+    chunk_path = os.path.abspath(f"res/{filename}/chunks/{chunk_file}")
+
+    if not os.path.exists(chunk_path):
+        raise HTTPException(status_code=404, detail=f"Chunk file not found: {chunk_file}")
+
+    npz = np.load(chunk_path)
+    raw_data = np.ascontiguousarray(npz["raw_data"])
+    vertex_count = int(chunk_meta.get("vertexCount", 0))
+
+    return Response(
+        raw_data.tobytes(),
+        media_type="application/octet-stream",
+        headers={
+            "n-vertex": str(vertex_count),
+            "n-channels": str(16),
+            "dtype": "float32",
+            "chunk-id": str(chunk_id),
+        },
+    )
 
 
 # -----------------------------------------------------------------------------
