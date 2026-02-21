@@ -25,7 +25,7 @@ void main() {
     
     if (uMode == 0) {
         // Debug visualization for view-space position
-        fragColor = vec4(p, col.a);
+        fragColor = vec4(p + 0.5, col.a);
     }else if (uMode == 1) {
         fragColor = vec4(m, col.a);
     }else if (uMode == 2) {

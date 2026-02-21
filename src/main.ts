@@ -126,6 +126,8 @@ document.body.appendChild(fpsDiv)
 let isBenchmarking = false
 let benchmarkStartTime = 0
 let frameCount = 0
+// const fixedPosePosition = new THREE.Vector3(-0.1415, -2.5058, -1.5576)
+// const fixedPoseTarget = new THREE.Vector3(-0.1921, -0.2912, -0.2503)
 const fixedPosePosition = new THREE.Vector3(2.4396, 0.2282, 1.0201)
 const fixedPoseTarget = new THREE.Vector3(0.4078, -0.1714, -0.5057)
 
