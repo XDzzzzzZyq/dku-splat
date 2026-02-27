@@ -3,7 +3,7 @@ import { renderer } from './scene/renderer'
 import { camera } from './scene/camera'
 import { controls } from './scene/controls'
 // Auto-select splat implementation (WebGPU vs WebGL)
-import { Button3D } from './ui3d/Button3D'
+import { buildWidgets, type WidgetLocationMetadata } from './ui3d/buildWidgets'
 import { CONFIG } from './config'
 
 // Log renderer capabilities where available (WebGPU renderer may not expose same fields)
@@ -69,28 +69,55 @@ try {
   console.warn('Environment map setup failed:', err)
 }
 
-const vis_button = new Button3D()
-vis_button.position.set(1.0, 0.4, -0.5)
-vis_button.userData.onClick = () => {
-  splat_renderer.toggleVisible()
-}
-scene.add(vis_button)
-
-const mod_button = new Button3D()
-mod_button.position.set(1.0, 0.2, -0.5)
-mod_button.userData.onClick = () => {
-  splat_renderer.setDeferredMode()
-}
-scene.add(mod_button)
-
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
+const clickableObjects: THREE.Object3D[] = []
+
+const interactionManager = {
+  registerClickable: (object: THREE.Object3D) => {
+    clickableObjects.push(object)
+  },
+}
+
+const selectedLocationMetadata: WidgetLocationMetadata[] = [
+  {
+    id: 'visibility',
+    label: 'Visibility',
+    details: 'Toggle splat mesh',
+    buttonPosition: [1.0, 0.4, -0.5],
+    onSelect: () => {
+      splat_renderer.toggleVisible()
+    },
+  },
+  {
+    id: 'deferred',
+    label: 'Render Mode',
+    details: 'Switch deferred mode',
+    buttonPosition: [1.0, 0.2, -0.5],
+    onSelect: () => {
+      splat_renderer.setDeferredMode()
+    },
+  },
+]
+
+const panelState = {
+  openPanelId: null as string | null,
+}
+
+scene.userData.camera = camera
+
+const { updateHooks: widgetUpdateHooks } = buildWidgets(
+  scene,
+  interactionManager,
+  selectedLocationMetadata,
+  panelState
+)
 
 window.addEventListener('pointerdown', (e) => {
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1
   raycaster.setFromCamera(mouse, camera)
-  const hits = raycaster.intersectObjects(scene.children, true)
+  const hits = raycaster.intersectObjects(clickableObjects, true)
   hits[0]?.object.userData.onClick?.()
 })
 
@@ -182,6 +209,9 @@ function animate() {
   }
 
   controls.update()
+  for (const updateHook of widgetUpdateHooks) {
+    updateHook()
+  }
   // update splat shader uniforms with current camera
   // three.js camera matrices
   try {
