@@ -4,6 +4,7 @@ import { camera } from './scene/camera'
 import { controls } from './scene/controls'
 // Auto-select splat implementation (WebGPU vs WebGL)
 import { Button3D } from './ui3d/Button3D'
+import { InfoPanel3D } from './ui3d/InfoPanel3D'
 import { CONFIG } from './config'
 
 // Log renderer capabilities where available (WebGPU renderer may not expose same fields)
@@ -18,6 +19,11 @@ const scene = new THREE.Scene()
 
 // Separate scene for splat G-buffer pass (deferred pipeline)
 const splatScene = new THREE.Scene()
+
+const interactionObjects: THREE.Object3D[] = []
+const registerInteractive = (...objects: THREE.Object3D[]) => {
+  interactionObjects.push(...objects)
+}
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.6))
 
@@ -76,12 +82,25 @@ vis_button.userData.onClick = () => {
 }
 scene.add(vis_button)
 
+
 const mod_button = new Button3D()
 mod_button.position.set(1.0, 0.2, -0.5)
 mod_button.userData.onClick = () => {
   splat_renderer.setDeferredMode()
 }
 scene.add(mod_button)
+
+const infoPanel = new InfoPanel3D({
+  title: 'Scene Controls',
+  description: `Blue button toggles splat visibility.
+Lower button switches deferred mode.
+Use the red close button to hide this panel.`,
+  billboard: true,
+})
+infoPanel.position.set(0.2, 0.6, -0.8)
+scene.add(infoPanel)
+
+registerInteractive(vis_button, mod_button, ...infoPanel.interactables)
 
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
@@ -90,7 +109,7 @@ window.addEventListener('pointerdown', (e) => {
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1
   raycaster.setFromCamera(mouse, camera)
-  const hits = raycaster.intersectObjects(scene.children, true)
+  const hits = raycaster.intersectObjects(interactionObjects, true)
   hits[0]?.object.userData.onClick?.()
 })
 
@@ -181,6 +200,7 @@ function animate() {
     }
   }
 
+  infoPanel.update(camera)
   controls.update()
   // update splat shader uniforms with current camera
   // three.js camera matrices
