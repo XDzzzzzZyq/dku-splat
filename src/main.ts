@@ -5,6 +5,7 @@ import { controls } from './scene/controls'
 // Auto-select splat implementation (WebGPU vs WebGL)
 import { Button3D } from './ui3d/Button3D'
 import { CONFIG } from './config'
+import { LOCATION_METADATA, type LocationInfoMetadata } from './ui3d/locationMetadata'
 
 // Log renderer capabilities where available (WebGPU renderer may not expose same fields)
 const render_capabilities =
@@ -20,6 +21,12 @@ const scene = new THREE.Scene()
 const splatScene = new THREE.Scene()
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.6))
+
+const locationMetadata = LOCATION_METADATA[CONFIG.SCENE]
+
+if (!locationMetadata) {
+  throw new Error(`No location metadata found for scene: ${CONFIG.SCENE}`)
+}
 
 let splat_renderer: any
 if (render_capabilities === 'WebGPU') {
@@ -82,6 +89,49 @@ mod_button.userData.onClick = () => {
   splat_renderer.setDeferredMode()
 }
 scene.add(mod_button)
+
+const metadataPanels: Array<{ button: Button3D; panel: HTMLDivElement; offset: readonly [number, number] }> = []
+
+const createMetadataPanel = (info: LocationInfoMetadata) => {
+  const panel = document.createElement('div')
+  panel.style.position = 'absolute'
+  panel.style.maxWidth = '240px'
+  panel.style.padding = '10px'
+  panel.style.borderRadius = '8px'
+  panel.style.background = 'rgba(0, 0, 0, 0.75)'
+  panel.style.color = '#fff'
+  panel.style.fontFamily = 'sans-serif'
+  panel.style.fontSize = '12px'
+  panel.style.lineHeight = '1.4'
+  panel.style.pointerEvents = 'none'
+  panel.style.display = 'none'
+  panel.dataset.visible = 'false'
+  panel.innerHTML = `<strong>${info.title}</strong><br/>${info.description}`
+  document.body.appendChild(panel)
+  return panel
+}
+
+for (const info of locationMetadata.infos) {
+  const infoButton = new Button3D(0xff8844)
+  infoButton.scale.setScalar(0.7)
+  infoButton.position.set(...info.buttonPosition)
+
+  const panel = createMetadataPanel(info)
+
+  infoButton.userData.onClick = () => {
+    const isVisible = panel.dataset.visible === 'true'
+    panel.dataset.visible = String(!isVisible)
+    panel.style.display = isVisible ? 'none' : 'block'
+
+    if (info.cameraTarget) {
+      controls.target.set(...info.cameraTarget)
+      controls.update()
+    }
+  }
+
+  scene.add(infoButton)
+  metadataPanels.push({ button: infoButton, panel, offset: info.panelOffset })
+}
 
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
@@ -182,6 +232,25 @@ function animate() {
   }
 
   controls.update()
+
+  for (const { button, panel, offset } of metadataPanels) {
+    if (panel.dataset.visible !== 'true') continue
+
+    const worldPosition = button.getWorldPosition(new THREE.Vector3())
+    const projected = worldPosition.project(camera)
+    const isInFront = projected.z < 1
+    if (!isInFront) {
+      panel.style.display = 'none'
+      continue
+    }
+
+    const x = (projected.x * 0.5 + 0.5) * window.innerWidth
+    const y = (-projected.y * 0.5 + 0.5) * window.innerHeight
+    panel.style.display = 'block'
+    panel.style.left = `${x + offset[0]}px`
+    panel.style.top = `${y + offset[1]}px`
+  }
+
   // update splat shader uniforms with current camera
   // three.js camera matrices
   try {
